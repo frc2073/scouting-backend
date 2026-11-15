@@ -1,0 +1,1457 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard – EagleForce Hours{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ======================================================
+   DASHBOARD LAYOUT
+====================================================== */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1280px) {
+  .dashboard-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* Card base */
+.dash-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 0;
+  overflow: hidden;
+  transition: box-shadow 0.22s ease, transform 0.22s ease;
+}
+.dash-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  padding: 14px 20px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-body {
+  padding: 20px;
+}
+
+/* Status card */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.active {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 25%, transparent);
+  animation: pulseDot 2s infinite;
+}
+.status-dot.inactive { background: var(--border); }
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 25%, transparent); }
+  50%       { box-shadow: 0 0 0 6px color-mix(in srgb, #22c55e 0%, transparent); }
+}
+
+.checkin-time {
+  font-size: 0.8rem;
+  color: var(--muted-text);
+  margin: 4px 0 0 18px;
+}
+
+/* Timer */
+.timer-wrap {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--radius-md);
+}
+#live-timer {
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  line-height: 1;
+}
+.timer-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-text);
+  margin-top: 4px;
+}
+.timer-inactive {
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--border);
+  line-height: 1;
+}
+
+.card-action {
+  margin-top: 18px;
+}
+
+/* Stats card */
+.stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted-text);
+  margin-bottom: 6px;
+}
+.stat-number {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+}
+.stat-unit {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted-text);
+  margin-left: 4px;
+}
+.stat-sub {
+  font-size: 0.8rem;
+  color: var(--muted-text);
+  margin-top: 4px;
+}
+.progress-track {
+  width: 100%;
+  height: 5px;
+  background: var(--border);
+  border-radius: 999px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.6s var(--ease-out);
+}
+.progress-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 0.7rem;
+  color: var(--muted-text);
+  font-weight: 500;
+}
+
+/* Stats split */
+.stats-split {
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.stats-split-item { flex: 1; }
+.stats-split-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1;
+}
+.stats-split-unit {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-text);
+}
+.stats-split-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted-text);
+  margin-top: 3px;
+}
+
+/* Rank badge */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-top: 10px;
+}
+.rank-badge.gold   { background: color-mix(in srgb,#d97706 12%,transparent); color:#d97706; }
+.rank-badge.silver { background: color-mix(in srgb,#6b7280 12%,transparent); color:#6b7280; }
+.rank-badge.bronze { background: color-mix(in srgb,#b45309 12%,transparent); color:#b45309; }
+.rank-badge.other  { background: var(--bg-subtle); color: var(--muted-text); border: 1px solid var(--border); }
+
+/* Quick nav grid */
+.nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.nav-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 18px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+.nav-tile:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-2px);
+}
+.nav-tile:hover svg { stroke: #fff; }
+.nav-tile svg { stroke: var(--accent); transition: stroke 0.18s ease; }
+
+/* ======================================================
+   PROFILE SECTION
+====================================================== */
+.profile-section {
+  margin-top: 24px;
+}
+.section-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.section-row-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-text);
+}
+
+.profile-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+}
+@media (max-width: 760px) {
+  .profile-card { grid-template-columns: 1fr; }
+}
+.profile-col {
+  padding: 20px;
+  border-right: 1px solid var(--border);
+}
+.profile-col:last-child { border-right: none; }
+@media (max-width: 760px) {
+  .profile-col { border-right: none; border-bottom: 1px solid var(--border); }
+  .profile-col:last-child { border-bottom: none; }
+}
+
+/* Pill lists */
+.pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  min-height: 30px;
+}
+.subteam-pill {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.badge-pill svg { flex-shrink: 0; }
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: 10px;
+}
+.role-chip.member  { background: var(--bg-subtle); color: var(--muted-text); border: 1px solid var(--border); }
+.role-chip.lead    { background: color-mix(in srgb,#f59e0b 12%,transparent); color:#b45309; border: 1px solid color-mix(in srgb,#f59e0b 30%,transparent); }
+.role-chip.mentor  { background: color-mix(in srgb,var(--accent) 10%,transparent); color:var(--accent); border: 1px solid color-mix(in srgb,var(--accent) 25%,transparent); }
+
+.empty-hint {
+  font-size: 0.78rem;
+  color: var(--muted-text);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.edit-profile-link {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.edit-profile-link:hover { text-decoration: underline; }
+
+/* Scout rank */
+.scout-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.scout-rank-num {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text);
+}
+.scout-rank-of {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-text);
+}
+.scout-rank-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted-text);
+  margin-top: 2px;
+}
+/* ======================================================
+   IDENTITY — avatar + about
+====================================================== */
+.identity-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  border: 2px solid var(--border);
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.about-pronouns {
+  margin: 0 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-text);
+}
+.about-text {
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text);
+  margin: 10px 0 0;
+  white-space: pre-line;
+}
+.about-empty {
+  font-size: 0.8rem;
+  color: var(--muted-text);
+  font-style: italic;
+  margin: 10px 0 0;
+}
+
+/* ======================================================
+   TRAINING BADGES
+====================================================== */
+.badge-section { margin-top: 22px; }
+
+.badge-progress-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.badge-progress-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.badge-progress-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.badge-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.7s var(--ease-out);
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 12px;
+}
+
+/* A medallion, not a pill: ring + own mark per discipline. */
+.badge-medal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  text-align: center;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s, border-color 0.18s;
+}
+.badge-medal.earned {
+  border-color: color-mix(in srgb, var(--medal) 34%, var(--border));
+  background: color-mix(in srgb, var(--medal) 7%, var(--bg-elevated));
+}
+.badge-medal.earned:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--medal) 55%, transparent);
+}
+
+.medal-disc {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.badge-medal.earned .medal-disc {
+  background: color-mix(in srgb, var(--medal) 15%, transparent);
+  border: 2px solid var(--medal);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent),
+              0 2px 8px -3px color-mix(in srgb, var(--medal) 70%, transparent);
+}
+.badge-medal.locked .medal-disc {
+  background: var(--bg-subtle);
+  border: 2px dashed var(--border);
+}
+.badge-medal.earned .medal-disc svg { stroke: var(--medal); }
+.badge-medal.locked .medal-disc svg { stroke: var(--border); }
+
+.medal-name {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
+}
+.badge-medal.earned .medal-name { color: var(--medal); }
+.badge-medal.locked .medal-name { color: var(--muted-text); }
+
+.medal-state {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-text);
+  opacity: 0.8;
+}
+
+/* Locked badges say how to earn them on hover/focus rather than staying mute. */
+.medal-how {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 200px;
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
+  background: var(--text);
+  color: var(--bg-elevated);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s, transform 0.16s;
+  z-index: 20;
+}
+.badge-medal:hover .medal-how,
+.badge-medal:focus-within .medal-how {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ======================================================
+   BADGE EARN MOMENT
+====================================================== */
+#badge-reveal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(10, 10, 12, 0.88);
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#badge-reveal.open { display: flex; }
+
+.reveal-card {
+  text-align: center;
+  animation: revealIn 0.6s cubic-bezier(0.18, 1.3, 0.4, 1) both;
+}
+@keyframes revealIn {
+  from { opacity: 0; transform: scale(0.6) rotate(-12deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+.reveal-disc {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  margin: 0 auto 22px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--medal) 18%, #14161c);
+  border: 3px solid var(--medal);
+  box-shadow: 0 0 0 10px color-mix(in srgb, var(--medal) 12%, transparent),
+              0 0 44px -6px var(--medal);
+  position: relative;
+  overflow: hidden;
+}
+.reveal-disc svg { stroke: var(--medal); }
+
+/* A single sweep of light across the disc — one pass, then done. */
+.reveal-disc::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.5) 50%, transparent 58%);
+  animation: sheen 1.1s ease-out 0.42s both;
+}
+@keyframes sheen {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+.reveal-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--medal);
+  margin-bottom: 8px;
+}
+.reveal-name {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin: 0 0 6px;
+}
+.reveal-by {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.6);
+  margin: 0 0 26px;
+}
+.reveal-dismiss {
+  padding: 11px 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.25);
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.reveal-dismiss:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.5); }
+
+.reveal-more {
+  margin-top: 16px;
+  font-size: 0.74rem;
+  color: rgba(255,255,255,0.45);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-card { animation: none; }
+  .reveal-disc::after { animation: none; opacity: 0; }
+  .badge-medal.earned:hover { transform: none; }
+}
+
+/* ======================================================
+   SIGN-IN QR
+====================================================== */
+.qr-strip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 22px;
+  align-items: center;
+  padding: 20px;
+}
+@media (max-width: 640px) {
+  .qr-strip { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+}
+.qr-frame {
+  background: #fff;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  line-height: 0;
+  flex-shrink: 0;
+}
+.qr-frame img { width: 140px; height: 140px; display: block; image-rendering: pixelated; }
+.qr-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.qr-desc {
+  font-size: 0.82rem;
+  color: var(--muted-text);
+  margin: 0 0 12px;
+  max-width: 46ch;
+}
+.qr-url {
+  display: inline-block;
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 0.75rem;
+  color: var(--muted-text);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  word-break: break-all;
+  max-width: 100%;
+}
+.qr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.qr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.qr-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.qr-btn:hover svg { stroke: #fff; }
+.qr-btn svg { stroke: var(--accent); transition: stroke 0.15s; }
+
+/* Kiosk overlay - a big scannable code for a shop display */
+#qr-kiosk {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(10, 10, 12, 0.92);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px;
+}
+#qr-kiosk.open { display: flex; }
+#qr-kiosk .qr-frame { padding: 18px; }
+#qr-kiosk .qr-frame img {
+  width: min(62vh, 82vw);
+  height: min(62vh, 82vw);
+}
+#qr-kiosk .kiosk-caption {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+#qr-kiosk .kiosk-sub {
+  color: rgba(255,255,255,0.65);
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.scout-card-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0.75;
+  margin-top: 14px;
+  transition: opacity 0.15s;
+  text-decoration: none;
+}
+.dash-card.scout-link:hover .scout-card-hint { opacity: 1; }
+
+/* ======================================================
+   SHIFT CLOCK HERO
+   Built around time rather than the scouting console: a dial whose 40 ticks
+   are the weekly goal hours, and a week timeline showing when they happened.
+====================================================== */
+.sc {
+  --dial: 320px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  margin-bottom: 28px;
+  padding: 2rem 2.25rem 2.25rem;
+  border-radius: 28px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(90% 120% at 0% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
+    var(--bg-elevated);
+}
+.sc.is-on { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+/* Faint concentric rings radiating from the dial, like a clock face. */
+.sc-rings {
+  position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background: repeating-radial-gradient(circle at 210px 58%,
+              transparent 0 38px,
+              color-mix(in srgb, var(--text) 5%, transparent) 38px 39px);
+  -webkit-mask-image: radial-gradient(circle at 210px 58%, #000 0, transparent 520px);
+          mask-image: radial-gradient(circle at 210px 58%, #000 0, transparent 520px);
+}
+
+.sc-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.75rem; }
+.sc-kicker { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.35rem; }
+.sc-hello { margin: 0; font-size: clamp(1.5rem, 2.6vw, 2.1rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; color: var(--text); }
+.sc-hello span { color: var(--muted-text); font-weight: 600; }
+.sc.is-on .sc-hello span { color: var(--accent); }
+
+.sc-faces { display: inline-flex; align-items: center; gap: 0.65rem; text-decoration: none; color: var(--muted-text); }
+.sc-faces-stack { display: inline-flex; }
+.sc-face {
+  width: 34px; height: 34px; margin-left: -9px;
+  border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 800; color: var(--text);
+  background: var(--bg); border: 2px solid var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--border);
+  transition: transform 0.18s ease;
+}
+.sc-face:first-child { margin-left: 0; }
+.sc-face.is-more { color: var(--muted-text); }
+.sc-faces:hover .sc-face { transform: translateY(-2px); }
+.sc-faces-label { font-size: 0.82rem; }
+.sc-faces-label b { color: var(--text); }
+.sc-faces:hover .sc-faces-label { color: var(--accent); }
+
+.sc-body { display: grid; grid-template-columns: var(--dial) minmax(0, 1fr); gap: 2.75rem; align-items: start; }
+.sc-left { display: flex; flex-direction: column; align-items: center; gap: 1.1rem; }
+
+/* ---- Dial ---- */
+.sc-dial {
+  position: relative; width: var(--dial); height: var(--dial);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--bg-elevated) 0 58%, transparent 58.5%),
+    radial-gradient(circle, color-mix(in srgb, var(--accent) 7%, var(--bg)) 0 100%);
+  box-shadow: inset 0 0 0 1px var(--border), 0 18px 50px rgba(0,0,0,0.18);
+}
+/* 40 ticks, one per goal hour; lit ones are hours already logged this week. */
+.sc-tick {
+  position: absolute; left: 50%; top: 10px;
+  width: 4px; height: 20px; margin-left: -2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--muted-text) 30%, transparent);
+  transform-origin: 2px calc(var(--dial) / 2 - 10px);
+  transform: rotate(calc(var(--i) * 9deg));
+}
+.sc-tick.is-lit {
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: scTick 0.4s ease both;
+  animation-delay: calc(0.2s + var(--i) * 30ms);
+}
+@keyframes scTick { from { background: color-mix(in srgb, var(--muted-text) 30%, transparent); box-shadow: none; } }
+
+/* Second hand: a dot that laps the inner face once a minute while on the clock. */
+.sc-sweep { position: absolute; inset: 44px; border-radius: 50%; animation: scSweep 60s linear infinite; }
+.sc-sweep i {
+  position: absolute; left: 50%; top: -4px; width: 8px; height: 8px; margin-left: -4px;
+  border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 14px var(--accent);
+}
+@keyframes scSweep { to { transform: rotate(360deg); } }
+
+.sc-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem;
+  text-align: center;
+}
+.sc-state {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted-text);
+}
+.sc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-text); }
+.sc.is-on .sc-state { color: var(--accent); }
+.sc.is-on .sc-dot { background: var(--accent); animation: scPulse 2s ease-in-out infinite; }
+@keyframes scPulse { 50% { opacity: 0.35; } }
+.sc-time {
+  font-size: 2.6rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.sc-time small { font-size: 0.5em; font-weight: 700; color: var(--muted-text); margin-left: 2px; }
+.sc-sub { font-size: 0.76rem; color: var(--muted-text); }
+.sc-goal {
+  margin-top: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 999px;
+  font-size: 0.7rem; font-weight: 700; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border);
+}
+
+.sc-punch {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-width: 200px; padding: 0.75rem 1.6rem; border-radius: 999px;
+  font-weight: 800; font-size: 0.95rem; text-decoration: none;
+  color: #fff !important; background: var(--accent);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease;
+}
+.sc-punch:hover { transform: translateY(-2px); box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 50%, transparent); }
+.sc-punch.is-out { color: var(--accent) !important; background: transparent; border: 2px solid var(--accent); box-shadow: none; }
+.sc-punch.is-out:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+/* ---- Week timeline ---- */
+.sc-label { font-size: 0.74rem; font-weight: 700; color: var(--muted-text); }
+.sc-week-head { display: grid; grid-template-columns: 54px minmax(0, 1fr) 48px; row-gap: 0.5rem; align-items: end; margin-bottom: 0.4rem; }
+.sc-week-head .sc-label { grid-column: 1 / -1; }
+.sc-scale { grid-column: 2; position: relative; height: 1rem; }
+.sc-scale span { position: absolute; transform: translateX(-50%); font-size: 0.64rem; font-weight: 600; color: var(--muted-text); }
+.sc-row {
+  display: grid; grid-template-columns: 54px minmax(0, 1fr) 48px; align-items: center;
+  padding: 0.3rem 0;
+  animation: scRow 0.5s cubic-bezier(0.22,1,0.36,1) both;
+  animation-delay: calc(0.1s + var(--r) * 60ms);
+}
+@keyframes scRow { from { opacity: 0; transform: translateX(-10px); } }
+.sc-day { display: flex; align-items: baseline; gap: 0.3rem; }
+.sc-day b { font-size: 0.8rem; color: var(--text); }
+.sc-day span { font-size: 0.7rem; color: var(--muted-text); }
+.sc-row.is-today .sc-day b { color: var(--accent); }
+.sc-track {
+  position: relative; height: 26px; border-radius: 8px;
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--border) 80%, transparent) 0 1px, transparent 1px 16.6667%),
+    color-mix(in srgb, var(--bg) 70%, transparent);
+  border: 1px solid var(--border);
+}
+.sc-row.is-today .sc-track { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.sc-block {
+  position: absolute; top: 4px; bottom: 4px; min-width: 4px;
+  border-radius: 5px;
+  /* Past days are a softer step of the accent; today's row is full strength. */
+  background: color-mix(in srgb, var(--accent) 60%, var(--bg-elevated));
+  outline: none; cursor: default;
+  transform-origin: left; animation: scGrow 0.6s cubic-bezier(0.22,1,0.36,1) both;
+  animation-delay: calc(0.25s + var(--r, 0) * 60ms);
+}
+.sc-row.is-today .sc-block { background: var(--accent); }
+.sc-block:hover, .sc-block:focus-visible { background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.sc-block.is-open { background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, transparent)); }
+.sc-block.is-open::before {
+  content: ''; position: absolute; right: -3px; top: 50%; width: 8px; height: 8px; margin-top: -4px;
+  border-radius: 50%; background: var(--accent); animation: scPulse 1.6s ease-in-out infinite;
+}
+@keyframes scGrow { from { transform: scaleX(0); } }
+.sc-block::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translate(-50%, 4px);
+  padding: 0.25rem 0.55rem; border-radius: 7px;
+  background: var(--text); color: var(--bg);
+  font-size: 0.7rem; font-weight: 700; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity 0.12s, transform 0.12s; z-index: 4;
+}
+.sc-block:hover::after, .sc-block:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.sc-now {
+  position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px;
+  background: var(--text); border-radius: 1px; opacity: 0.6;
+}
+.sc-total { text-align: right; font-size: 0.8rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.sc-total.is-zero { color: var(--muted-text); font-weight: 500; }
+
+.sc-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 1.5rem 0 0;
+  border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+}
+.sc-stats > div { padding: 0.75rem 1rem; border-left: 1px solid var(--border); }
+.sc-stats > div:first-child { border-left: none; }
+.sc-stats dt { font-size: 0.7rem; font-weight: 600; color: var(--muted-text); }
+.sc-stats dd { margin: 0.15rem 0 0; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; color: var(--text); font-variant-numeric: tabular-nums; }
+.sc-stats small { font-size: 0.7rem; font-weight: 600; color: var(--muted-text); }
+
+.sc-links { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 1rem; }
+.sc-links a { font-size: 0.82rem; font-weight: 700; color: var(--muted-text); text-decoration: none; border-bottom: 1px solid transparent; }
+.sc-links a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Between seasons: the hero stays, but greys out and drops the check-in. */
+.sc.is-closed { border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
+.sc.is-closed .sc-hello span { color: #d97706; }
+html.inverted .sc.is-closed .sc-hello span { color: #fbbf24; }
+.sc.is-closed .sc-tick.is-lit { background: color-mix(in srgb, var(--accent) 45%, var(--muted-text)); box-shadow: none; }
+.sc-closed-tag {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.75rem; border-radius: 999px;
+  font-size: 0.78rem; font-weight: 700; color: var(--muted-text);
+  border: 1px solid var(--border); background: var(--bg);
+}
+.sc-punch.is-locked {
+  color: var(--muted-text) !important; background: var(--bg);
+  border: 1px dashed var(--border); box-shadow: none; cursor: not-allowed;
+}
+.sc-punch.is-locked:hover { transform: none; box-shadow: none; }
+.sc-added {
+  margin-right: 0.35rem; padding: 0 0.3rem; border-radius: 5px;
+  font-size: 0.66rem; font-weight: 800; color: #16a34a;
+  background: color-mix(in srgb, #22c55e 14%, transparent);
+}
+html.inverted .sc-added { color: #4ade80; }
+
+@media (max-width: 1000px) {
+  .sc-body { grid-template-columns: 1fr; gap: 2rem; }
+  .sc-rings { background-position: center; -webkit-mask-image: none; mask-image: none; opacity: 0.5; }
+}
+@media (max-width: 640px) {
+  .sc { --dial: 260px; padding: 1.25rem 1rem 1.25rem; border-radius: 22px; }
+  .sc-head { flex-direction: column; align-items: flex-start; gap: 0.9rem; margin-bottom: 1.25rem; }
+  .sc-hello { font-size: 1.35rem; }
+  .sc-tick { top: 8px; width: 3px; height: 15px; margin-left: -1.5px; transform-origin: 1.5px calc(var(--dial) / 2 - 8px); }
+  .sc-sweep { inset: 34px; }
+  .sc-time { font-size: 2.1rem; }
+  .sc-punch { width: 100%; }
+  .sc-week-head, .sc-row { grid-template-columns: 44px minmax(0, 1fr) 40px; }
+  .sc-scale span:nth-child(even) { display: none; }
+  .sc-day span { display: none; }
+  .sc-track { height: 22px; }
+  .sc-stats { grid-template-columns: repeat(2, 1fr); }
+  .sc-stats > div:nth-child(3) { border-left: none; }
+  .sc-stats > div:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .sc-links { gap: 0.9rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ====================================================
+     SHIFT CLOCK: a dial for the weekly goal and the live session, and a
+     timeline of when this week's hours actually happened.
+==================================================== -->
+<section class="sc{% if checked_in_session %} is-on{% endif %}{% if not season_open %} is-closed{% endif %}" id="shift">
+  <div class="sc-rings" aria-hidden="true"></div>
+
+  <header class="sc-head">
+    <div>
+      <div class="sc-kicker">EagleForce Hours</div>
+      <h1 class="sc-hello">Hi {{ first_name }}, <span>{% if not season_open %}{{ season.name }} is over.{% elif checked_in_session %}you're on the clock.{% else %}you're off the clock.{% endif %}</span></h1>
+    </div>
+    {% if season_open %}
+    <a class="sc-faces" href="{% url 'hours:checked_in' %}" aria-label="{{ checked_in_count }} people checked in now">
+      <span class="sc-faces-stack">
+        {% for f in checked_in_faces %}<span class="sc-face" title="{{ f.name }}">{{ f.initials }}</span>{% endfor %}
+        {% if checked_in_count > 6 %}<span class="sc-face is-more">+{{ checked_in_count|add:"-6" }}</span>{% endif %}
+      </span>
+      <span class="sc-faces-label"><b>{{ checked_in_count }}</b> in the shop now</span>
+    </a>
+    {% else %}
+    <span class="sc-closed-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Read-only until next season</span>
+    {% endif %}
+  </header>
+
+  <div class="sc-body">
+    <div class="sc-left">
+      <div class="sc-dial" role="img" aria-label="{{ weekly_hours|floatformat:1 }} of 40 goal hours this week">
+        {% for lit in goal_ticks %}<span class="sc-tick{% if lit %} is-lit{% endif %}" style="--i:{{ forloop.counter0 }}"></span>{% endfor %}
+        {% if checked_in_session %}<span class="sc-sweep" id="sc-sweep" aria-hidden="true"><i></i></span>{% endif %}
+        <div class="sc-center">
+          <span class="sc-state"><span class="sc-dot"></span>{% if not season_open %}Season over{% elif checked_in_session %}On the clock{% else %}Off the clock{% endif %}</span>
+          {% if not season_open %}
+            <div class="sc-time is-idle">{{ season_hours|floatformat:1 }}<small>h</small></div>
+            <span class="sc-sub">final season total{% if rank_position %} &middot; #{{ rank_position }}{% endif %}</span>
+          {% elif checked_in_session %}
+            <div class="sc-time js-live-timer">00:00:00</div>
+            <span class="sc-sub">since {{ checked_in_session.check_in_time|time:"g:i A" }}</span>
+          {% else %}
+            <div class="sc-time is-idle">{{ weekly_hours|floatformat:1 }}<small>h</small></div>
+            <span class="sc-sub">{% if last_out %}last out {{ last_out|date:"D g:i A" }}{% else %}no sessions yet{% endif %}</span>
+          {% endif %}
+          <span class="sc-goal">{{ weekly_hours|floatformat:1 }} / 40 hrs {% if season_open %}this week{% else %}final week{% endif %}</span>
+        </div>
+      </div>
+      {% if not season_open %}
+      <span class="sc-punch is-locked"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Check-ins open next season</span>
+      {% else %}
+      <a class="sc-punch{% if checked_in_session %} is-out{% endif %}" href="{% url 'hours:check_in_out' %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{% if checked_in_session %}<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>{% else %}<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>{% endif %}</svg>
+        {% if checked_in_session %}Check out{% else %}Check in{% endif %}
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="sc-right">
+      <div class="sc-week">
+        <div class="sc-week-head">
+          <span class="sc-label">{% if season_open %}This week{% else %}Final week of {{ season.name }}{% endif %}</span>
+          <div class="sc-scale" aria-hidden="true">
+            <span style="left:0%">6a</span><span style="left:16.667%">9a</span><span style="left:33.333%">12p</span>
+            <span style="left:50%">3p</span><span style="left:66.667%">6p</span><span style="left:83.333%">9p</span><span style="left:100%">12a</span>
+          </div>
+        </div>
+        {% for row in week_rows %}
+        <div class="sc-row{% if row.today %} is-today{% endif %}" style="--r:{{ forloop.counter0 }}">
+          <div class="sc-day"><b>{{ row.day }}</b><span>{{ row.date }}</span></div>
+          <div class="sc-track">
+            {% for b in row.blocks %}<span class="sc-block{% if b.open %} is-open{% endif %}" style="left:{{ b.left|stringformat:'s' }}%;width:{{ b.width|stringformat:'s' }}%" tabindex="0" data-tip="{{ b.tip }}"></span>{% endfor %}
+            {% if row.today and now_pct is not None %}<span class="sc-now" style="left:{{ now_pct|stringformat:'s' }}%" aria-hidden="true"></span>{% endif %}
+          </div>
+          <div class="sc-total{% if not row.total %} is-zero{% endif %}">{% if row.added %}<span class="sc-added" title="Added by a mentor">{% if row.added > 0 %}+{% endif %}{{ row.added|floatformat:1 }}</span>{% endif %}{{ row.total|floatformat:1 }}h</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <dl class="sc-stats">
+        <div><dt>{% if season_open %}Season total{% else %}Final total{% endif %}</dt><dd>{{ season_hours|floatformat:1 }}<small> hrs</small></dd></div>
+        <div><dt>Season rank</dt><dd>{% if rank_position %}#{{ rank_position }}<small> / {{ total_ranked }}</small>{% else %}&mdash;{% endif %}</dd></div>
+        <div><dt>Day streak</dt><dd>{{ day_streak }}<small> day{{ day_streak|pluralize }}</small></dd></div>
+        <div><dt>Badges</dt><dd>{{ earned_count }}<small> / {{ badge_total }}</small></dd></div>
+      </dl>
+
+      <nav class="sc-links" aria-label="Hours shortcuts">
+        <a href="{% url 'hours:user_detail' user.id %}">Session history</a>
+        <a href="{% url 'hours:rankings' %}">Leaderboard</a>
+        <a href="{% url 'hours:scout_leaderboard' %}">Scouting{% if scouting_stats.scout_rank %} #{{ scouting_stats.scout_rank }}{% endif %}</a>
+        {% if request.session.is_admin %}<a href="/admin-panel/">Admin</a>{% endif %}
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================
+     SIGN-IN QR
+==================================================== -->
+{% if qr_code_url %}
+<div class="profile-section reveal">
+  <div class="section-row-header">
+    <div class="section-row-title">Sign In</div>
+  </div>
+  <div class="dash-card" style="cursor:default;">
+    <div class="qr-strip">
+      <div class="qr-frame">
+        <img id="qr-code-img" src="{{ qr_code_url }}" alt="QR code linking to the check in and out page">
+      </div>
+      <div>
+        <p class="qr-title">Scan to check in or out</p>
+        <p class="qr-desc">
+          Point a phone camera at this code to open the check in / out page. Put it on
+          the shop display so everyone can log their own hours on the way in.
+        </p>
+        <span class="qr-url" id="qr-url-text">{{ check_in_url }}</span>
+        <div class="qr-actions">
+          <button type="button" class="qr-btn" id="qr-fullscreen-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+            Kiosk view
+          </button>
+          <button type="button" class="qr-btn" id="qr-copy-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy link
+          </button>
+          <a class="qr-btn" href="{% url 'hours:check_in_out' %}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Open here
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="qr-kiosk" role="dialog" aria-modal="true" aria-label="Full screen sign-in QR code">
+  <div class="qr-frame">
+    <img src="{{ qr_code_url }}" alt="QR code linking to the check in and out page">
+  </div>
+  <div class="kiosk-caption">
+    Scan to check in / out
+    <div class="kiosk-sub">Tap anywhere or press Esc to close</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ====================================================
+     PROFILE SECTION
+==================================================== -->
+<div class="profile-section reveal">
+  <div class="section-row-header">
+    <div class="section-row-title">My Profile</div>
+    <a href="{% url 'hours:profile' %}" class="edit-profile-link">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit
+    </a>
+  </div>
+
+  <div class="dash-card" style="cursor:default;">
+    <div class="profile-card" style="display:grid;">
+
+      <!-- Col 1: Identity, Role & Rank -->
+      <div class="profile-col">
+        <div class="identity-row">
+          <div class="avatar">
+            {% if profile.avatar_url %}
+              <img src="{{ profile.avatar_url }}" alt="">
+            {% else %}
+              {{ profile.initials }}
+            {% endif %}
+          </div>
+          <div style="min-width:0;">
+            <div style="font-size:0.95rem;font-weight:700;color:var(--text);line-height:1.2;">
+              {{ user.get_full_name|default:user.username }}
+            </div>
+            <div style="font-size:0.74rem;color:var(--muted-text);">{{ profile.get_role_display }}</div>
+          </div>
+        </div>
+        <div class="stat-label" style="margin-top:16px;">Role</div>
+        <div class="role-chip {{ profile.role }}">
+          {% if profile.role == 'lead' %}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          {% elif profile.role == 'mentor' %}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+          {% else %}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+          {% endif %}
+          {{ profile.get_role_display }}
+        </div>
+        {% if rank_position %}
+        <div style="margin-top:14px;">
+          <div class="stat-label">Season Rank</div>
+          {% if rank_position == 1 %}
+            <div class="rank-badge gold">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              #1 of {{ total_ranked }}
+            </div>
+          {% elif rank_position == 2 %}
+            <div class="rank-badge silver">#2 of {{ total_ranked }}</div>
+          {% elif rank_position == 3 %}
+            <div class="rank-badge bronze">#3 of {{ total_ranked }}</div>
+          {% else %}
+            <div class="rank-badge other">#{{ rank_position }} of {{ total_ranked }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Col 2: Subteams -->
+      <div class="profile-col">
+        <div class="stat-label">Subteam(s)</div>
+        <div class="pill-list">
+          {% for slug, label, color in subteam_labels %}
+            <span class="subteam-pill" style="background:color-mix(in srgb,{{ color }} 12%,transparent);color:{{ color }};">{{ label }}</span>
+          {% empty %}
+            <span class="empty-hint">No subteam selected —
+              <a href="{% url 'hours:onboarding' %}" style="color:var(--accent);font-weight:600;">add one</a>
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Col 3: About Me -->
+      <div class="profile-col">
+        <div class="stat-label">About Me</div>
+        {% if profile.pronouns %}
+          <p class="about-pronouns">{{ profile.pronouns }}</p>
+        {% endif %}
+        {% if profile.about %}
+          <p class="about-text">{{ profile.about }}</p>
+        {% else %}
+          <p class="about-empty">
+            Nothing here yet —
+            <a href="{% url 'hours:profile' %}" style="color:var(--accent);font-weight:600;font-style:normal;">add a line about yourself</a>.
+          </p>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ Training badges ============ -->
+  <div class="badge-section">
+    <div class="badge-progress-head">
+      <div class="section-row-title">My Training</div>
+      <div class="badge-progress-count">{{ earned_count }} / {{ badge_total }}</div>
+    </div>
+    <div class="badge-progress-track">
+      <div class="badge-progress-fill" id="badge-progress" style="width:0%;"></div>
+    </div>
+
+    <div class="badge-grid">
+      {% for badge in badge_data %}
+      <div class="badge-medal {% if badge.earned %}earned{% else %}locked{% endif %}"
+           style="--medal: {{ badge.color }};"
+           tabindex="0"
+           aria-label="{{ badge.label }} — {% if badge.earned %}earned{% else %}not yet earned{% endif %}">
+        <div class="medal-disc">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ badge.svg|safe }}</svg>
+        </div>
+        <div class="medal-name">{{ badge.short }}</div>
+        <div class="medal-state">{% if badge.earned %}Earned{% else %}Locked{% endif %}</div>
+        {% if not badge.earned and badge.how %}
+        <div class="medal-how">{{ badge.how }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================
+     BADGE EARN MOMENT — plays once per award
+==================================================== -->
+{% if unseen_badges %}
+{{ unseen_badges|json_script:"unseen-badge-data" }}
+<div id="badge-reveal" role="dialog" aria-modal="true" aria-labelledby="reveal-name">
+  <div class="reveal-card">
+    <div class="reveal-disc" id="reveal-disc">
+      <svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="reveal-icon"></svg>
+    </div>
+    <div class="reveal-eyebrow" id="reveal-eyebrow">New Badge Unlocked</div>
+    <h2 class="reveal-name" id="reveal-name"></h2>
+    <p class="reveal-by" id="reveal-by"></p>
+    <button type="button" class="reveal-dismiss" id="reveal-dismiss">Nice</button>
+    <div class="reveal-more" id="reveal-more"></div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  /* Shift clock: start the second hand where the real clock's seconds are,
+     so the dot and the timer tick together. */
+  var sweep = document.getElementById('sc-sweep');
+  if (sweep) { sweep.style.animationDelay = -(new Date().getSeconds()) + 's'; }
+})();
+
+/* Training progress bar */
+(function(){
+  var fill = document.getElementById('badge-progress');
+  if (!fill) return;
+  var pct = {{ badge_total }} ? ({{ earned_count }} / {{ badge_total }}) * 100 : 0;
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){ fill.style.width = pct.toFixed(1) + '%'; });
+  });
+})();
+
+/* Badge earn moment — shows each new award once, then tells the server
+   it has been seen so a refresh does not replay it. */
+(function(){
+  var dataEl = document.getElementById('unseen-badge-data');
+  var overlay = document.getElementById('badge-reveal');
+  if (!dataEl || !overlay) return;
+
+  var badges;
+  try { badges = JSON.parse(dataEl.textContent) || []; } catch (e) { return; }
+  if (!badges.length) return;
+
+  var idx = 0;
+  var disc    = document.getElementById('reveal-disc');
+  var icon    = document.getElementById('reveal-icon');
+  var nameEl  = document.getElementById('reveal-name');
+  var byEl    = document.getElementById('reveal-by');
+  var moreEl  = document.getElementById('reveal-more');
+  var dismiss = document.getElementById('reveal-dismiss');
+
+  function show(i) {
+    var b = badges[i];
+    disc.style.setProperty('--medal', b.color);
+    overlay.style.setProperty('--medal', b.color);
+    icon.innerHTML = b.svg || '';
+    nameEl.textContent = b.label;
+    byEl.textContent = b.awarded_by ? ('Awarded by ' + b.awarded_by) : 'Awarded by a mentor';
+    moreEl.textContent = badges.length > 1
+      ? (i + 1) + ' of ' + badges.length
+      : '';
+    // Restart the entrance animation for each badge in a multi-award run.
+    var card = overlay.querySelector('.reveal-card');
+    card.style.animation = 'none';
+    void card.offsetHeight;
+    card.style.animation = '';
+    overlay.classList.add('open');
+    dismiss.focus();
+  }
+
+  function acknowledge() {
+    var token = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/) || [])[1];
+    fetch('{% url "hours:acknowledge_badges" %}', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRFToken': token ? decodeURIComponent(token) : '',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    }).catch(function(){ /* it replays next visit; not worth bothering anyone */ });
+  }
+
+  function next() {
+    idx++;
+    if (idx < badges.length) { show(idx); return; }
+    overlay.classList.remove('open');
+    acknowledge();
+  }
+
+  dismiss.addEventListener('click', next);
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) next(); });
+  document.addEventListener('keydown', function(e){
+    if (overlay.classList.contains('open') && (e.key === 'Escape' || e.key === 'Enter')) next();
+  });
+
+  show(0);
+})();
+
+/* Sign-in QR: kiosk overlay + copy link */
+(function(){
+  var kiosk   = document.getElementById('qr-kiosk');
+  var openBtn = document.getElementById('qr-fullscreen-btn');
+  var copyBtn = document.getElementById('qr-copy-btn');
+
+  if (openBtn && kiosk) {
+    openBtn.addEventListener('click', function(){ kiosk.classList.add('open'); });
+    kiosk.addEventListener('click', function(){ kiosk.classList.remove('open'); });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { kiosk.classList.remove('open'); }
+    });
+  }
+
+  if (copyBtn) {
+    var label = copyBtn.lastChild;
+    function flash(text) {
+      if (label && label.nodeType === 3) {
+        label.nodeValue = text;
+        setTimeout(function(){ label.nodeValue = ' Copy link '; }, 1600);
+      }
+    }
+    copyBtn.addEventListener('click', function(){
+      var el = document.getElementById('qr-url-text');
+      var url = el ? el.textContent.trim() : '';
+      if (!url) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(
+          function(){ flash(' Copied '); },
+          function(){ flash(' Press Ctrl+C '); }
+        );
+        return;
+      }
+      // The async clipboard API needs a secure context, which plain http on
+      // the shop LAN is not, so keep the old execCommand path as a fallback.
+      var ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); flash(' Copied '); } catch (err) { flash(' Press Ctrl+C '); }
+      document.body.removeChild(ta);
+    });
+  }
+})();
+
+/* Live timer */
+(function(){
+  var checkInIso = "{{ check_in_time_iso|default:'' }}";
+  // The desktop console and the phone card each show the running session.
+  var timers = document.querySelectorAll('.js-live-timer');
+  if (!timers.length || !checkInIso) return;
+  var start = new Date(checkInIso);
+  function update() {
+    var diff = Date.now() - start.getTime();
+    if (diff < 0) diff = 0;
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    var text = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    timers.forEach(function (t) { t.textContent = text; });
+  }
+  update();
+  setInterval(update, 1000);
+})();
+</script>
+{% endblock %}

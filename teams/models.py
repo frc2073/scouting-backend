@@ -12,6 +12,9 @@ class Teams(models.Model):
     # Dynamic Data Bucket
     pit_data = models.JSONField(default=dict)
 
+    # Freeform strategy notes
+    notes = models.TextField(blank=True, default='')
+
     class Meta:
         unique_together = ('team_number', 'event')
 

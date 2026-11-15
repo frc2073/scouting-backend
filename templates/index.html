@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#b11226">
+<meta name="theme-color" content="#E63946">
 
 <title>{% block Title %}{{ app_name }}{% endblock %}</title>
 <link rel="icon" href="{{ logo_url }}" type="image/png">
@@ -15,7 +15,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&display=swap" rel="stylesheet">
 
 <style>
 /* ======================================================
@@ -33,9 +33,32 @@
   --pad-xs: 0.25rem;
   --pad-sm: 0.5rem;
   --pad-md: 0.75rem;
+
+  /* Elevation system */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.05);
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.14), 0 8px 20px rgba(0,0,0,0.07);
+
+  /* Radius scale */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Spacing scale */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+
+  /* Extra neutral level */
+  --bg-subtle: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg));
 }
 
+html { color-scheme: light; background: var(--bg); }
+
 html.inverted {
+  /* Dark native widgets: scrollbars, checkboxes, date pickers and selects
+     otherwise stay white because the browser still thinks the page is light. */
+  color-scheme: dark;
   --bg: #121212;
   --bg-elevated: #1e1e1e;
   --text: #f5f5f5;
@@ -43,22 +66,82 @@ html.inverted {
   --accent: #FF4D4D;
   --accent-hover: #FF6666;
   --border: #333333;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.38);
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.55);
 }
+
+/* Scrollbars follow the theme. Firefox and Chrome 121+ read scrollbar-color
+   (inherited, so it reaches every scrolling box); Safari only knows the
+   ::-webkit-scrollbar pseudo-elements. */
+html.inverted { scrollbar-color: #3a3a3a transparent; }
+html.inverted ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+html.inverted ::-webkit-scrollbar-track { background: transparent; }
+html.inverted ::-webkit-scrollbar-thumb {
+  background: #3a3a3a; border-radius: 999px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+html.inverted ::-webkit-scrollbar-thumb:hover { background-color: #505050; }
+html.inverted ::-webkit-scrollbar-corner { background: transparent; }
 
 /* ======================================================
-   NAVBAR TOGGLER
+   CUSTOM ANIMATED HAMBURGER
 ====================================================== */
-.navbar-toggler {
-  background-color: var(--accent);
-  border: none;
+.navbar-toggler { display: none; }
+
+.hamburger-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    background     0.2s ease,
+    border-color   0.2s ease,
+    transform      0.15s ease;
 }
 
-html.inverted .navbar-toggler {
-  background-color: #c4162a;
+@media (max-width: 991px) {
+  .hamburger-btn { display: flex; }
 }
 
-.navbar-toggler-icon {
-  filter: invert(1);
+.hamburger-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.hamburger-btn:active { transform: scale(0.92); }
+
+.hamburger-line {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition:
+    transform  0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity    0.22s ease,
+    width      0.28s ease;
+  transform-origin: center;
+}
+
+.hamburger-btn[aria-expanded="true"] .hamburger-line-1 {
+  transform: translateY(7px) rotate(45deg);
+}
+.hamburger-btn[aria-expanded="true"] .hamburger-line-2 {
+  opacity: 0;
+  width: 0;
+}
+.hamburger-btn[aria-expanded="true"] .hamburger-line-3 {
+  transform: translateY(-7px) rotate(-45deg);
 }
 
 /* ======================================================
@@ -98,6 +181,7 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   padding-top: var(--navbar-padding);
   padding-bottom: var(--navbar-padding);
   position: sticky;
@@ -144,6 +228,10 @@ body {
   position: relative;
   animation: brandTextEntry 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
 }
+
+/* Two-tone wordmark; the split is applied by the script below the navbar. */
+.brand-text .wm-a { color: var(--text); }
+.brand-text .wm-b { color: var(--accent); }
 
 @keyframes brandTextEntry {
   from { opacity: 0; transform: translateX(-8px); }
@@ -226,6 +314,30 @@ html.inverted .dark-mode-logo { display: inline-block !important; }
   .navbar-collapse {
     padding-top: 0.75rem;
   }
+  .navbar-collapse.show {
+    background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 16px 16px;
+    margin: 0.5rem -12px 0;
+    padding: 0.75rem 1rem 1.25rem;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  }
+  .navbar-collapse.show .navbar-nav .nav-item {
+    animation: mobileNavItemIn 0.32s var(--ease-out) both;
+  }
+  .navbar-collapse.show .navbar-nav .nav-item:nth-child(1) { animation-delay: 0.04s; }
+  .navbar-collapse.show .navbar-nav .nav-item:nth-child(2) { animation-delay: 0.09s; }
+  .navbar-collapse.show .navbar-nav .nav-item:nth-child(3) { animation-delay: 0.14s; }
+  .navbar-collapse.show .navbar-nav .nav-item:nth-child(4) { animation-delay: 0.19s; }
+  .navbar-collapse.show .navbar-nav .nav-item:nth-child(5) { animation-delay: 0.24s; }
+}
+
+@keyframes mobileNavItemIn {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
 }
 /* ======================================================
    ENHANCED MOBILE HAMBURGER SPACING
@@ -570,6 +682,80 @@ html.inverted #comp {
 .toast-icon { font-size: 1rem; flex-shrink: 0; }
 
 /* ======================================================
+   BELL PANEL ROWS
+====================================================== */
+.bell-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text); text-decoration: none;
+  opacity: 0.7;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+.bell-item:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated)); color: var(--text); opacity: 1; }
+.bell-item.is-unread { opacity: 1; background: color-mix(in srgb, #e74c3c 6%, var(--bg-elevated)); }
+.bell-item-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; margin-top: 5px; }
+.bell-item.is-unread .bell-item-dot { background: #e74c3c; }
+.bell-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bell-item-msg { font-size: 0.82rem; font-weight: 600; line-height: 1.35; }
+.bell-item-meta { font-size: 0.7rem; color: var(--muted-text); }
+
+/* ======================================================
+   ALERT POPUPS (Discord-style, top right under the navbar)
+====================================================== */
+#alert-popups {
+  position: fixed;
+  top: 76px; right: 16px;
+  z-index: 99999;
+  display: flex; flex-direction: column; gap: 10px;
+  pointer-events: none;
+  width: min(360px, calc(100vw - 32px));
+}
+.alert-popup {
+  position: relative; overflow: hidden;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 36px 14px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.28);
+  color: var(--text); text-decoration: none;
+  pointer-events: auto;
+  transform: translateX(calc(100% + 24px));
+  opacity: 0;
+  transition: transform 0.34s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)), opacity 0.2s ease;
+}
+.alert-popup.show { transform: none; opacity: 1; }
+.alert-popup:hover { color: var(--text); border-color: color-mix(in srgb, #e74c3c 45%, var(--border)); }
+.alert-popup-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #e74c3c; color: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #e74c3c 20%, transparent);
+}
+.alert-popup-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.alert-popup-title { font-size: 0.9rem; font-weight: 800; letter-spacing: -0.01em; }
+.alert-popup-time { font-size: 0.7rem; font-weight: 500; color: var(--muted-text); margin-left: 4px; }
+.alert-popup-msg { font-size: 0.82rem; color: var(--muted-text); line-height: 1.35; }
+.alert-popup-close {
+  position: absolute; top: 6px; right: 8px;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted-text); font-size: 1.15rem; line-height: 1;
+  padding: 2px 6px; border-radius: 6px;
+}
+.alert-popup-close:hover { background: var(--border); color: var(--text); }
+/* Shrinking bar shows how long until the popup leaves; hovering pauses it. */
+.alert-popup-timer {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  background: #e74c3c; transform-origin: left;
+  animation: alertPopupTimer 7s linear forwards;
+}
+.alert-popup.paused .alert-popup-timer { animation-play-state: paused; }
+@keyframes alertPopupTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (max-width: 991px) { #alert-popups { top: 68px; right: 12px; } }
+
+/* ======================================================
    BUTTON RIPPLE
 ====================================================== */
 .btn { position: relative; overflow: hidden; }
@@ -595,8 +781,8 @@ html.inverted .ripple-wave { background: rgba(255,255,255,0.15); }
 .nav-link.active-page::after {
   content: '';
   position: absolute;
-  bottom: -2px; left: 0;
-  width: 100%; height: 2px;
+  bottom: -3px; left: 0;
+  width: 100%; height: 2.5px;
   background: var(--accent);
   border-radius: 999px;
 }
@@ -613,6 +799,170 @@ html.inverted .ripple-wave { background: rgba(255,255,255,0.15); }
 }
 html.inverted .card-lift:hover {
   box-shadow: 0 14px 36px rgba(0,0,0,0.45);
+}
+
+/* ======================================================
+   PAGE HEADER COMPONENT
+====================================================== */
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: var(--sp-4) 0 var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+.page-header-left { min-width: 0; }
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0;
+  color: var(--text);
+}
+.page-subtitle {
+  font-size: 0.82rem;
+  color: var(--muted-text);
+  font-weight: 500;
+  margin: 4px 0 0;
+}
+
+/* ======================================================
+   EMPTY STATE COMPONENT
+====================================================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-7) var(--sp-5);
+  text-align: center;
+  color: var(--muted-text);
+}
+.empty-state-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-text);
+  margin-bottom: var(--sp-2);
+}
+.empty-state h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.empty-state p {
+  font-size: 0.85rem;
+  margin: 0;
+  max-width: 320px;
+}
+
+/* ======================================================
+   SKELETON SHIMMER UTILITY
+====================================================== */
+.skeleton-row td {
+  padding: 10px 14px;
+}
+.skel {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    var(--bg-elevated) 50%,
+    var(--border) 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+/* ======================================================
+   GLOBAL BUTTON REFINEMENTS
+====================================================== */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 9px 20px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.btn-primary:hover {
+  background: var(--accent-hover, #D62828);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn-ghost:hover {
+  background: var(--bg-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ======================================================
+   GLOBAL INPUT REFINEMENTS
+====================================================== */
+.input-base {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-base:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.input-base::placeholder { color: var(--muted-text); }
+
+/* ======================================================
+   SURFACE CARD UTILITY
+====================================================== */
+.surface {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.surface-md {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 /* ======================================================
@@ -643,6 +993,202 @@ html.inverted .card-lift:hover {
 }
 
 /* ======================================================
+   FLUID SETTINGS PANEL
+====================================================== */
+
+/* Gear rotates 90° when panel is open */
+#settings-toggle .settings-gear-icon {
+  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+#settings-toggle[aria-expanded="true"] .settings-gear-icon {
+  transform: rotate(90deg);
+}
+
+/* Panel — fluid scale-in from top-right */
+#settings-menu-panel {
+  transform-origin: top right;
+  border-radius: 16px !important;
+  padding: 0.4rem !important;
+  min-width: 256px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.07) !important;
+}
+html.inverted #settings-menu-panel {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.52), 0 4px 16px rgba(0,0,0,0.3) !important;
+}
+#settings-menu-panel.show {
+  animation: settingsPanelIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes settingsPanelIn {
+  from { opacity: 0; transform: scale(0.88) translateY(-8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Staggered item entrance */
+#settings-menu-panel.show > * { animation: settingsItemSlide 0.28s var(--ease-out) both; }
+#settings-menu-panel.show > *:nth-child(1)  { animation-delay: 0.04s; }
+#settings-menu-panel.show > *:nth-child(2)  { animation-delay: 0.08s; }
+#settings-menu-panel.show > *:nth-child(3)  { animation-delay: 0.12s; }
+#settings-menu-panel.show > *:nth-child(4)  { animation-delay: 0.16s; }
+#settings-menu-panel.show > *:nth-child(5)  { animation-delay: 0.20s; }
+#settings-menu-panel.show > *:nth-child(6)  { animation-delay: 0.24s; }
+#settings-menu-panel.show > *:nth-child(7)  { animation-delay: 0.28s; }
+#settings-menu-panel.show > *:nth-child(8)  { animation-delay: 0.32s; }
+#settings-menu-panel.show > *:nth-child(9)  { animation-delay: 0.36s; }
+#settings-menu-panel.show > *:nth-child(10) { animation-delay: 0.40s; }
+@keyframes settingsItemSlide {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Row layout */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.48rem 0.55rem;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text);
+  text-decoration: none;
+  cursor: default;
+  transition: background 0.14s ease;
+  box-sizing: border-box;
+}
+.settings-row-btn { cursor: pointer; }
+.settings-row:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+}
+
+/* Icon box */
+.settings-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 7px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted-text);
+  flex-shrink: 0;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+.settings-row:hover .settings-row-icon {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--accent);
+}
+
+/* Label */
+.settings-row-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+}
+
+/* Small chip toggle */
+.settings-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.72rem !important;
+  font-weight: 700;
+  color: var(--muted-text);
+  cursor: pointer;
+  transition: border-color 0.14s, color 0.14s;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: auto !important;
+  text-align: center;
+}
+.settings-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Select control */
+.settings-select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 108px;
+  flex-shrink: 0;
+}
+.settings-select:focus { outline: none; border-color: var(--accent); }
+
+/* Danger row (Logout) */
+.settings-row-danger .settings-row-icon {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+.settings-row-danger .settings-row-label { color: var(--accent); }
+.settings-row-danger:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+}
+
+/* User header */
+.settings-user-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.55rem 0.4rem;
+}
+.settings-user-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.settings-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Restored when an image 404s and onerror strips it, so the initial still
+   reads as a tinted circle rather than an empty ring. */
+.settings-user-avatar.is-initial::after {
+  content: attr(data-initial);
+}
+.settings-panel-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.3rem 0.4rem;
+}
+
+/* Strip old Bootstrap overrides inside panel */
+#settings-menu-panel li { padding-bottom: 0 !important; }
+#settings-menu-panel li + li {
+  border-top: none !important; padding-top: 0 !important; margin-top: 0 !important;
+}
+#settings-menu-panel b { display: none; }
+#settings-menu-panel .btn { width: auto; min-height: unset; }
+
+/* ======================================================
    SKELETON SHIMMER
 ====================================================== */
 .skeleton {
@@ -660,39 +1206,751 @@ html.inverted .card-lift:hover {
   0%   { background-position: -800px 0; }
   100% { background-position:  800px 0; }
 }
+
+/* ======================================================
+   NAVBAR INTERACTION POLISH
+   Nav links previously had no transition at all, so hover snapped and a press
+   gave no feedback. Everything here is additive and appended last so it wins
+   on specificity ties without editing the rules above.
+====================================================== */
+
+/* Shared easing so nav motion matches the rest of the app. */
+:root {
+  --nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-link {
+  position: relative;
+  transition: color 0.18s var(--nav-ease), transform 0.12s var(--nav-ease);
+  border-radius: 8px;
+}
+
+/* ---- Sliding pill indicator -------------------------------------------
+   One shared element travels between nav items instead of each link drawing
+   its own underline. Because the same node moves, the eye tracks a single
+   object across the bar, which reads as motion rather than as two separate
+   things fading in and out. Driven by transform/width so it stays on the
+   compositor.
+   ---------------------------------------------------------------------- */
+.navbar-nav { position: relative; }
+
+@media (min-width: 992px) {
+  .navbar-nav.me-auto { gap: 0.35rem; }
+}
+
+.nav-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 16%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width     0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    height    0.18s var(--nav-ease),
+    opacity   0.16s ease;
+  will-change: transform, width;
+}
+
+/* First placement must not animate in from the corner. */
+.nav-pill.no-anim { transition: none; }
+
+/* The pill sits behind the text. */
+.navbar-nav .nav-item { position: relative; z-index: 1; }
+
+/* The active page keeps a solid marker so it stays identifiable even while
+   the pill is off visiting another link. */
+.nav-link.active-page::after {
+  transform-origin: center;
+  animation: navUnderlineIn 0.34s var(--nav-ease) both;
+}
+
+@keyframes navUnderlineIn {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* A press should feel like a press. */
+.nav-link:active { transform: scale(0.96); }
+
+.dropdown-item {
+  transition: background 0.15s ease, color 0.15s ease, padding-left 0.16s var(--nav-ease);
+  border-radius: 6px;
+}
+
+/* Nudge right on hover so the pointer feels like it is pulling the row. */
+.dropdown-item:hover,
+.dropdown-item:focus-visible {
+  padding-left: 1.45rem;
+}
+
+.dropdown-item:active { transform: scale(0.98); }
+
+/* Stagger menu rows in, the same trick the mobile nav already uses. */
+.dropdown-menu.show li {
+  animation: dropRowIn 0.2s var(--nav-ease) both;
+}
+.dropdown-menu.show li:nth-child(1) { animation-delay: 0.02s; }
+.dropdown-menu.show li:nth-child(2) { animation-delay: 0.06s; }
+.dropdown-menu.show li:nth-child(3) { animation-delay: 0.10s; }
+.dropdown-menu.show li:nth-child(4) { animation-delay: 0.14s; }
+.dropdown-menu.show li:nth-child(5) { animation-delay: 0.18s; }
+
+@keyframes dropRowIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Icon buttons and the hamburger get a springier press. */
+.nav-icon-btn {
+  transition: background 0.16s ease, color 0.16s ease,
+              border-color 0.16s ease, transform 0.12s var(--nav-ease);
+}
+.nav-icon-btn:active { transform: scale(0.92); }
+
+.hamburger-btn { transition: background 0.16s ease, transform 0.12s var(--nav-ease); }
+
+/* Keyboard users get a visible ring; mouse users do not, because these use
+   :focus-visible rather than :focus. */
+.nav-link:focus-visible,
+.nav-icon-btn:focus-visible,
+.dropdown-item:focus-visible,
+.hamburger-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The brand mark reacts to a press too, so the whole bar feels alive. */
+.navbar-brand { transition: transform 0.14s var(--nav-ease); }
+.navbar-brand:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link,
+  .nav-pill,
+  .nav-link.active-page::after,
+  .dropdown-item,
+  .dropdown-menu.show li,
+  .nav-icon-btn,
+  .hamburger-btn,
+  .navbar-brand {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ======================================================
+   BRAND BURST
+   Clicking the logo/wordmark fires a shockwave ring plus a ring of sparks
+   from the exact click point, while the logo squashes and pops. Navigation is
+   held for a moment so the burst is actually seen rather than cut off.
+====================================================== */
+.brand-burst {
+  position: fixed;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.brand-burst-ring {
+  position: absolute;
+  left: 0; top: 0;
+  width: 16px; height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: burstRing 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes burstRing {
+  from { transform: scale(0.25); opacity: 0.85; }
+  to   { transform: scale(7.5);  opacity: 0; }
+}
+
+/* Second, slower ring gives the blast some depth. */
+.brand-burst-ring.delayed {
+  animation-duration: 0.68s;
+  animation-delay: 0.06s;
+  border-width: 1px;
+  opacity: 0;
+}
+
+.brand-spark {
+  position: absolute;
+  left: 0; top: 0;
+  width: var(--s); height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  border-radius: 50%;
+  background: var(--c);
+  animation: burstSpark var(--d) cubic-bezier(0.16, 0.85, 0.3, 1) forwards;
+}
+
+@keyframes burstSpark {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to   { transform: translate(var(--dx), var(--dy)) scale(0.15); opacity: 0; }
+}
+
+/* Squash on the way in, overshoot on the way out. */
+.brand-logo.popping {
+  animation: brandPop 0.46s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes brandPop {
+  0%   { transform: scale(1) rotate(0deg); }
+  22%  { transform: scale(0.8) rotate(-9deg); }
+  58%  { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.brand-text.popping {
+  animation: brandTextPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes brandTextPop {
+  0%   { transform: scale(1); letter-spacing: normal; }
+  35%  { transform: scale(1.06); letter-spacing: 0.04em; }
+  100% { transform: scale(1); letter-spacing: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo.popping,
+  .brand-text.popping { animation: none !important; }
+}
+
+/* ======================================================
+   COMPETITION PICKER
+   A custom panel wrapping the native <select>. The select stays in the DOM as
+   the source of truth - this UI writes to it and dispatches `change`, so the
+   existing navigation logic keeps working untouched, and the control still
+   degrades to a plain select if this script never runs.
+====================================================== */
+.compdd {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Each nav item centres its own content, so the picker lines up with the
+   links regardless of their differing padding. */
+.navbar-nav > .nav-item {
+  display: flex;
+  align-items: center;
+}
+
+/* Native select kept for state and as a fallback, hidden but still focusable
+   by assistive tech if it ever matters. */
+.compdd-native {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0; pointer-events: none;
+  clip: rect(0 0 0 0);
+}
+
+.compdd-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  /* Matches the nav links' line box so the row reads as one baseline. */
+  min-height: 34px;
+  line-height: 1.2;
+  margin-left: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 230px;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.12s var(--nav-ease);
+}
+.compdd-trigger:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.compdd-trigger:active { transform: scale(0.97); }
+.compdd-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.compdd-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.compdd-caret {
+  flex-shrink: 0;
+  transition: transform 0.26s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+.compdd.open .compdd-caret { transform: rotate(180deg); }
+
+/* A live dot signals the picker is bound to real data. */
+.compdd-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: compPulse 2.4s ease-in-out infinite;
+}
+@keyframes compPulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.8); }
+}
+
+/* Same shell as #settings-menu-panel: 16px radius, 0.4rem padding, 256px
+   floor and the same layered shadow, so the two panels read as one family.
+   Origin is top-left because this control sits on the left of the bar. */
+.compdd-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 256px;
+  max-width: min(320px, calc(100vw - 32px));
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 0.4rem;
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.07);
+  z-index: 3000;
+  transform-origin: top left;
+  opacity: 0;
+  transform: scale(0.88) translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+html.inverted .compdd-panel {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.52), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.compdd.open .compdd-panel {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.compdd-search {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  margin-bottom: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: inherit;
+  font-size: 0.8rem;
+}
+.compdd-search:focus { outline: none; border-color: var(--accent); }
+
+.compdd-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.48rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text);
+  box-sizing: border-box;
+  transition: background 0.14s ease, color 0.14s ease;
+  /* Rows cascade down the list. The per-row delay is set inline. */
+  opacity: 0;
+  transform: translateY(-7px);
+}
+.compdd.open .compdd-opt {
+  animation: compRowDown 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes compRowDown {
+  from { opacity: 0; transform: translateY(-7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.compdd-opt:hover,
+.compdd-opt.active {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+  color: var(--accent);
+}
+
+/* Icon box mirroring .settings-row-icon, so each row has the same anchor. */
+.compdd-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px; min-width: 28px;
+  border-radius: 7px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted-text);
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+.compdd-opt:hover .compdd-ico,
+.compdd-opt.selected .compdd-ico {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+
+.compdd-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compdd-body { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+
+.compdd-opt .compdd-code {
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.55;
+  letter-spacing: 0.03em;
+  color: var(--muted-text);
+}
+
+.compdd-check { margin-left: auto; }
+
+.compdd-check {
+  width: 14px; height: 14px; flex-shrink: 0;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.16s ease, transform 0.22s cubic-bezier(0.34, 1.5, 0.5, 1);
+}
+.compdd-opt.selected .compdd-check { opacity: 1; transform: scale(1); }
+.compdd-opt.selected { font-weight: 700; }
+
+.compdd-empty {
+  padding: 0.7rem 0.6rem;
+  font-size: 0.78rem;
+  opacity: 0.6;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compdd-panel, .compdd-caret, .compdd-opt, .compdd-check, .compdd-dot, .compdd-ico {
+    transition: none !important;
+    animation: none !important;
+  }
+  .compdd-opt { opacity: 1; transform: none; }
+}
+
+/* Competition picker inside the collapsed mobile menu */
+@media (max-width: 991px) {
+  .navbar-nav > .nav-item { width: 100%; }
+  .compdd { width: 100%; }
+  .compdd-trigger {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .compdd-panel {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    max-width: none;
+  }
+}
 </style>
 
+<!-- ======================================================
+     THEME (must run before first paint, or a dark-mode reload
+     flashes the light theme until the body scripts catch up)
+====================================================== -->
+<script>
+(function () {
+  var dark = false;
+  try { dark = localStorage.getItem('inverted') === '1'; } catch (e) {}
+  if (dark) {
+    document.documentElement.classList.add('inverted');
+    // Bootstrap 5.3 components (tables, selects, dropdowns) read this one.
+    document.documentElement.setAttribute('data-bs-theme', 'dark');
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) { meta.setAttribute('content', '#121212'); }
+  }
+})();
+</script>
+
+<!-- ======================================================
+     MOTION PREFERENCE (must run before first paint)
+====================================================== -->
+<script>
+(function () {
+  var root = document.documentElement;
+
+  /* no-motion  = animations disabled
+     motion-ok  = animations explicitly enabled (beats the OS setting) */
+  window.applyMotionPref = function (reduced) {
+    root.classList.toggle('no-motion', reduced);
+    root.classList.toggle('motion-ok', !reduced);
+  };
+
+  var stored = null;
+  try { stored = localStorage.getItem('reduceMotion'); } catch (e) {}
+  var prefersReduced = !!(window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  /* An explicit choice in Settings wins; otherwise follow the OS. */
+  window.applyMotionPref(stored !== null ? stored === '1' : prefersReduced);
+})();
+</script>
+
+<!-- ======================================================
+     MOBILE MENU (<= 991px): compact grid, panels open downward
+     Loaded last so it overrides the desktop dropdown rules above.
+====================================================== -->
+<style id="mobile-menu">
+@media (max-width: 991px) {
+  .navbar-collapse.show {
+    max-height: calc(100dvh - 72px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.6rem 0.75rem 0.75rem;
+    margin-top: 0.35rem;
+  }
+
+  /* One compact grid per list; the gap replaces the old per-item margins. */
+  .navbar-collapse .navbar-nav {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+  }
+  .navbar-collapse .navbar-nav > .nav-item { margin: 0; width: auto; animation: none !important; }
+
+  /* Page links: two per row as small tiles. */
+  .navbar-collapse .navbar-nav.me-auto { grid-template-columns: 1fr 1fr; }
+  .navbar-collapse .navbar-nav.me-auto > .nav-item:not(.dropdown) { justify-self: stretch; min-width: 0; }
+  .navbar-collapse .navbar-nav.me-auto > .nav-item:not(.dropdown) > .nav-link,
+  .navbar-collapse .navbar-nav.me-auto > .nav-item.dropdown > .nav-link {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 40px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-elevated);
+  }
+  .navbar-collapse .navbar-nav.me-auto > .nav-item.dropdown { display: contents; }
+  .navbar-collapse .navbar-nav.me-auto > .nav-item:has(#comp),
+  .navbar-collapse .navbar-nav.me-auto > .nav-item:has(.compdd) { grid-column: 1 / -1; }
+  #comp { margin-top: 0; }
+
+  /* Alerts | Language | Settings side by side. */
+  .navbar-collapse .navbar-nav.ms-auto {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
+    margin-top: 0.4rem;
+  }
+  .navbar-collapse .navbar-nav.ms-auto > .nav-item { display: contents; }
+
+  .navbar-collapse .nav-icon-btn {
+    grid-row: 1;
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+  }
+  .navbar-collapse #bell-btn::after,
+  .navbar-collapse #settings-toggle.dropdown-toggle::after {
+    display: inline;
+    border: 0;
+    margin: 0;
+    content: "Settings";
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  #bell-btn { grid-column: 1; }
+  #lang-toggle { grid-column: 2; }
+  #settings-toggle { grid-column: 3; }
+  .navbar-collapse #bell-btn::after { content: "Alerts"; }
+  #bell-badge { top: 3px !important; right: 6px !important; }
+
+  /* Every panel: full width, in the page flow, directly under the button row. */
+  .navbar-collapse .dropdown-menu,
+  #bell-panel {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    animation: none;
+  }
+  #bell-panel { max-height: 45dvh !important; }
+  #bell-list { max-height: 34dvh !important; }
+
+  /* Event picker: its list opens in the flow under the picker, not floating over the
+     buttons below it (the menu card clips anything that sticks out of it). */
+  .navbar-collapse .compdd { display: flex; flex-direction: column; width: 100%; }
+  /* Closed: out of the layout entirely (it is only transparent by default, which in
+     the page flow would leave an empty gap under the picker). */
+  .navbar-collapse .compdd:not(.open) .compdd-panel { display: none !important; }
+  .navbar-collapse .compdd.open .compdd-panel { display: block; animation: dropdownFade 0.18s ease-out; }
+  .navbar-collapse .compdd-panel {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: 45dvh;
+    margin-top: 0.4rem !important;
+    box-sizing: border-box;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    transform: none !important;
+  }
+
+  /* Strategy submenu sits right under its tile, inside the grid. */
+  .navbar-collapse .navbar-nav.me-auto .dropdown-menu {
+    grid-row: auto;
+    padding: 0.25rem !important;
+  }
+  .navbar-collapse .navbar-nav.me-auto .dropdown-item { padding: 0.55rem 0.75rem; }
+
+  /* Tighter list rows (the old rules added 0.75rem of padding and margin per row). */
+  .navbar-collapse .dropdown-menu li,
+  .navbar-collapse .dropdown-menu li + li { padding: 0; margin: 0; border-top: 0; }
+
+  /* Language: options as a wrapping row of chips. */
+  .lang-menu { padding: 0.4rem !important; }
+  .lang-menu.show { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .lang-menu .lang-menu-header { flex: 1 0 100%; padding: 0.1rem 0.3rem; }
+  .lang-menu li { flex: 1 1 calc(50% - 0.3rem); }
+  .lang-option { padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 8px; }
+
+  /* Settings: compact rows. */
+  #settings-menu-panel { padding: 0.25rem !important; }
+  #settings-menu-panel > * { animation: none !important; }
+  #settings-menu-panel .settings-row { padding: 0.3rem 0.4rem; gap: 0.45rem; min-height: 36px; }
+  #settings-menu-panel .settings-row-icon { width: 24px; height: 24px; min-width: 24px; }
+  #settings-menu-panel .settings-user-header { padding: 0.25rem 0.4rem; }
+  #settings-menu-panel .settings-panel-divider { margin: 0.2rem 0; }
+}
+</style>
+<!-- ======================================================
+     DROPDOWN POLISH (all screen sizes): even rows, no divider lines
+====================================================== -->
+<style id="dropdown-polish">
+.navbar .dropdown-menu {
+  padding: 0.3rem;
+  border-radius: 12px;
+  min-width: 11rem;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
+}
+html.inverted .navbar .dropdown-menu { box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5); }
+
+/* The old rules gave every row 0.75rem of padding plus a divider line, which made
+   the rows uneven and the menus taller than they need to be. */
+.navbar .dropdown-menu li,
+.navbar .dropdown-menu li + li { padding: 0; margin: 0; border-top: 0; }
+
+.navbar .dropdown-item {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.navbar .dropdown-item:hover,
+.navbar .dropdown-item:focus { background: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated)); color: var(--accent); }
+
+.lang-menu { padding: 0.3rem !important; min-width: 10.5rem; }
+.lang-menu .lang-menu-header { padding: 0.3rem 0.7rem 0.2rem; }
+.lang-menu .lang-option { padding: 0.5rem 0.7rem; border-radius: 8px; }
+
+@media (min-width: 992px) {
+  #settings-menu-panel { min-width: 290px !important; }
+  #settings-menu-panel select { min-width: 9.5rem; }
+}
+
+/* While the mobile menu is sliding open or shut it already looks like the finished
+   card, instead of popping its background and shadow in at the end. */
+@media (max-width: 991px) {
+  .navbar-collapse.collapsing {
+    background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 16px 16px;
+    margin: 0.35rem -12px 0;
+    padding: 0.6rem 0.75rem 0.75rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+  }
+  .navbar .dropdown-menu { box-shadow: none; }
+}
+</style>
 {% block Styles %}{% endblock %}
 </head>
 
 <body>
 <div id="page-loading-bar"></div>
 <div id="toast-container"></div>
+<div id="alert-popups" aria-live="polite"></div>
 <header>
 <nav class="navbar navbar-expand-lg">
 <div class="container-fluid">
 
 <a class="navbar-brand" href="/">
   <img src="{% static 'images/logo.png' %}" class="brand-logo" alt="{{ app_name }} logo">
-  <span class="brand-text">{{ app_name }}</span>
+  <span class="brand-text" id="brand-text">{{ app_name }}</span>
 </a>
+<script>
+(function () {
+  var el = document.getElementById('brand-text');
+  var t = el.textContent.trim();
+  var i = t.indexOf(' ');
+  if (i === -1) { i = t.slice(1).search(/[A-Z]/) + 1; }
+  if (i <= 0) return;
+  el.textContent = '';
+  var a = document.createElement('span'); a.className = 'wm-a'; a.textContent = t.slice(0, i);
+  var b = document.createElement('span'); b.className = 'wm-b'; b.textContent = t.slice(i);
+  el.appendChild(a); el.appendChild(b);
+})();
+</script>
 
-<button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-  <span class="navbar-toggler-icon"></span>
+<button class="hamburger-btn"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarSupportedContent"
+        aria-controls="navbarSupportedContent"
+        aria-expanded="false"
+        aria-label="Toggle navigation">
+  <span class="hamburger-line hamburger-line-1"></span>
+  <span class="hamburger-line hamburger-line-2"></span>
+  <span class="hamburger-line hamburger-line-3"></span>
 </button>
 
 <div class="collapse navbar-collapse" id="navbarSupportedContent">
 
 <ul class="navbar-nav me-auto">
+  {% if is_team_member or 'scout_tech' in roles or 'teacher' in roles %}
   <li class="nav-item"><a class="nav-link" href="{% url 'scanner' %}" data-i18n="nav.scanner">QR Scanner</a></li>
+  {% endif %}
   <li class="nav-item"><a class="nav-link" href="{% url 'teams' %}" data-i18n="nav.teams">Teams</a></li>
+  <li class="nav-item"><a class="nav-link" href="{% url 'hours:dashboard' %}">Hours</a></li>
 
   <li class="nav-item dropdown">
     <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" data-i18n="nav.strategy">Strategy</a>
     <ul class="dropdown-menu">
       <li><a class="dropdown-item" href="{% url 'rankings' %}" data-i18n="nav.rankings">Rankings</a></li>
       <li><a class="dropdown-item" href="{% url 'dashboard' %}" data-i18n="nav.dashboard">Dashboard</a></li>
+      {% if is_team_member or 'strategist' in roles or 'teacher' in roles %}
       <li><a class="dropdown-item" href="{% url 'picklist' %}" data-i18n="nav.picklist">Picklist</a></li>
+      {% endif %}
     </ul>
   </li>
 
@@ -702,6 +1960,71 @@ html.inverted .card-lift:hover {
 </ul>
 
 <ul class="navbar-nav ms-auto align-items-center gap-1">
+
+<!-- Bell Notification Button -->
+<li class="nav-item" style="position:relative;">
+<button id="bell-btn" class="nav-icon-btn" aria-label="Notifications" style="position:relative;">
+  <svg id="bell-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+  <span id="bell-badge" style="
+    display:none;
+    position:absolute;
+    top:2px; right:2px;
+    width:16px; height:16px;
+    background:#e74c3c;
+    color:#fff;
+    border-radius:50%;
+    font-size:0.6rem;
+    font-weight:800;
+    line-height:16px;
+    text-align:center;
+    pointer-events:none;
+  ">0</span>
+</button>
+<!-- Notification Panel -->
+<div id="bell-panel" style="
+  display:none;
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  width:340px;
+  max-height:420px;
+  background:var(--bg-elevated);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.2);
+  z-index:9999;
+  overflow:hidden;
+  flex-direction:column;
+  font-family:'Inter',system-ui,sans-serif;
+">
+  <div style="
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 16px 10px;
+    border-bottom:1px solid var(--border);
+  ">
+    <span style="font-weight:700;font-size:0.9rem;color:var(--text);">Alerts</span>
+    <button id="bell-clear" style="
+      background:none;border:none;cursor:pointer;
+      font-size:0.72rem;color:var(--muted-text);padding:2px 6px;
+      border-radius:6px;transition:background 0.15s;
+    " onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='none'">
+      Clear all
+    </button>
+  </div>
+  <div id="bell-list" style="overflow-y:auto;max-height:360px;padding:6px 0;"></div>
+  <div id="bell-empty" style="
+    padding:28px 16px;
+    text-align:center;
+    font-size:0.82rem;
+    color:var(--muted-text);
+  ">No alerts</div>
+</div>
+</li>
 
 <!-- Language selector -->
 <li class="nav-item dropdown">
@@ -725,36 +2048,96 @@ html.inverted .card-lift:hover {
 <!-- Settings -->
 <li class="nav-item dropdown">
 <button id="settings-toggle" class="nav-icon-btn dropdown-toggle" data-bs-toggle="dropdown" aria-label="Settings">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <svg class="settings-gear-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3"/>
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
   </svg>
 </button>
-<ul class="dropdown-menu dropdown-menu-end p-3" style="min-width:220px;">
 
-<li>
-<b data-i18n="settings.theme">Theme</b><br>
-<button id="theme-toggle" class="btn btn-sm btn-outline-secondary mt-1 theme-toggle-btn">
-  <span id="theme-text">Dark Mode</span>
-</button>
-</li>
-
-<li>
-<b data-i18n="settings.density">Density</b><br>
-<button id="density-toggle" class="btn btn-sm btn-outline-secondary mt-1">
-Comfortable
-</button>
-</li>
+<ul class="dropdown-menu dropdown-menu-end" id="settings-menu-panel">
 
 {% if request.session.name %}
-<li><hr class="dropdown-divider my-2"></li>
+<div class="settings-user-header">
+  {# Hours-app picture; initial is the fallback if unset or the image fails. #}
+  <div class="settings-user-avatar" data-initial="{{ request.session.name|slice:':1' }}">
+    {% if user_avatar_url %}
+      <img src="{{ user_avatar_url }}" alt=""
+           onerror="this.remove();this.parentNode.classList.add('is-initial');">
+    {% else %}
+      {{ request.session.name|slice:":1" }}
+    {% endif %}
+  </div>
+  <span style="font-size:0.8rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ request.session.name }}</span>
+</div>
+<hr class="settings-panel-divider">
+{% endif %}
+
 <li>
-  <span class="dropdown-item-text small" style="color:var(--muted-text);">{{ request.session.name }}</span>
+  <button id="theme-toggle" class="settings-row settings-row-btn theme-toggle-btn" style="width:100%;">
+    <span class="settings-row-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </span>
+    <span class="settings-row-label" data-i18n="settings.theme">Theme</span>
+    <span id="theme-icon" class="theme-icon settings-chip"><span id="theme-text">Dark Mode</span></span>
+  </button>
 </li>
+
 <li>
-  <form method="post" action="{% url 'logout' %}">
+  <div class="settings-row">
+    <span class="settings-row-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </span>
+    <span class="settings-row-label" data-i18n="settings.density">Density</span>
+    <button id="density-toggle" class="settings-chip">Comfortable</button>
+  </div>
+</li>
+
+<li>
+  <div class="settings-row">
+    <span class="settings-row-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+    </span>
+    <span class="settings-row-label">Accent</span>
+    <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+      <input type="color" id="accent-color-input" value="#E63946" style="width:24px;height:20px;border:1px solid var(--border);border-radius:5px;background:none;cursor:pointer;padding:1px;">
+      <button id="accent-reset" class="settings-chip" style="font-size:0.68rem !important;padding:2px 7px;">Reset</button>
+    </div>
+  </div>
+</li>
+
+<li>
+  <div class="settings-row">
+    <span class="settings-row-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </span>
+    <span class="settings-row-label">Motion</span>
+    <button id="motion-toggle" class="settings-chip">Animations On</button>
+  </div>
+</li>
+
+
+{% if request.session.name %}
+<hr class="settings-panel-divider">
+{% if is_admin %}
+<li>
+  <a href="/admin-panel/" class="settings-row settings-row-btn" style="text-decoration:none;">
+    <span class="settings-row-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    </span>
+    <span class="settings-row-label">Admin Panel</span>
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted-text);opacity:0.45;flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+</li>
+{% endif %}
+<li>
+  <form method="post" action="{% url 'logout' %}" style="margin:0;">
     {% csrf_token %}
-    <button type="submit" class="dropdown-item" style="color:var(--accent);">Logout</button>
+    <button type="submit" class="settings-row settings-row-btn settings-row-danger" style="width:100%;">
+      <span class="settings-row-icon" aria-hidden="true">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </span>
+      <span class="settings-row-label">Logout</span>
+    </button>
   </form>
 </li>
 {% endif %}
@@ -777,7 +2160,7 @@ Comfortable
 </nav>
 </header>
 
-<div class="container-fluid page-content" style="max-width:98%;">
+<div class="container-fluid page-content" style="max-width:98%;padding-top:1rem;">
 {% block Content %}{% endblock %}
 </div>
 
@@ -1028,6 +2411,9 @@ window.t = function(key) {
 
   function setTheme(on){
     document.documentElement.classList.toggle("inverted", on);
+    document.documentElement.setAttribute("data-bs-theme", on ? "dark" : "light");
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", on ? "#121212" : "#E63946");
     localStorage.setItem("inverted", on ? "1" : "0");
     updateUI(on);
   }
@@ -1193,7 +2579,7 @@ window.t = function(key) {
   window.showToast = function (message, type, duration) {
     type     = type     || 'info';
     duration = duration || 3500;
-    var icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+    var icons = { success: '✓', error: '×', warning: '!', info: 'i' };
     var container = document.getElementById('toast-container');
     var el = document.createElement('div');
     el.className = 'toast-item toast-' + type;
@@ -1230,6 +2616,736 @@ window.t = function(key) {
 })();
 </script>
 
+<!-- ======================================================
+     BELL NOTIFICATIONS + BROKEN ROBOT ALERTS
+     One poller for the whole site. Alerts are keyed by team + match, so two
+     scouts reporting the same robot make one notification, and "Clear all"
+     is remembered per event so a reload does not bring them back.
+====================================================== -->
+<script>
+(function () {
+    'use strict';
+
+    var btn      = document.getElementById('bell-btn');
+    var panel    = document.getElementById('bell-panel');
+    var badge    = document.getElementById('bell-badge');
+    var list     = document.getElementById('bell-list');
+    var empty    = document.getElementById('bell-empty');
+    var clearBtn = document.getElementById('bell-clear');
+    var popups   = document.getElementById('alert-popups');
+    if (!btn) return;
+
+    var comp = new URLSearchParams(window.location.search).get('comp');
+    try { comp = comp || localStorage.getItem('comp') || ''; } catch (e) { comp = comp || ''; }
+
+    /* ---- Persistent per-event state ----
+       clearedThrough: alerts at or below this id were cleared, never refetched
+       seenThrough:    alerts at or below this id have been seen in the panel
+       poppedThrough:  alerts at or below this id already showed a popup */
+    var STATE_KEY = 'bell_state_v2:' + comp;
+    var state = { clearedThrough: 0, seenThrough: 0, poppedThrough: 0 };
+    try { Object.assign(state, JSON.parse(localStorage.getItem(STATE_KEY)) || {}); } catch (e) {}
+    function saveState() {
+        try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    var alerts = [];   // {key, id, team, scouts[], message, ts}
+    var panelOpen = false;
+    var latestId = state.clearedThrough;
+    var firstPoll = true;
+
+    function esc(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function isUnread(a) { return a.id > state.seenThrough; }
+
+    function updateBadge() {
+        var n = alerts.filter(isUnread).length;
+        badge.textContent = n > 9 ? '9+' : n;
+        badge.style.display = n > 0 ? 'block' : 'none';
+    }
+
+    function formatTime(ts) {
+        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function teamHref(a) {
+        return '/teams/' + encodeURIComponent(a.team) + '/' + (comp ? '?comp=' + encodeURIComponent(comp) : '');
+    }
+
+    function renderList() {
+        list.innerHTML = '';
+        empty.style.display = alerts.length ? 'none' : 'block';
+        alerts.forEach(function (a) {
+            var item = document.createElement('a');
+            item.className = 'bell-item' + (isUnread(a) ? ' is-unread' : '');
+            item.href = a.team ? teamHref(a) : '#';
+            item.innerHTML =
+                '<span class="bell-item-dot" aria-hidden="true"></span>' +
+                '<span class="bell-item-body">' +
+                    '<span class="bell-item-msg">' + esc(a.message) + '</span>' +
+                    '<span class="bell-item-meta">' + esc(formatTime(a.ts)) +
+                        (a.scouts && a.scouts.length ? ' · reported by ' + esc(a.scouts.join(', ')) : '') +
+                    '</span>' +
+                '</span>';
+            list.appendChild(item);
+        });
+    }
+
+    /* ---- Discord-style popup ---- */
+    function showPopup(a) {
+        if (!popups) return;
+        var card = document.createElement('a');
+        card.className = 'alert-popup';
+        card.href = a.team ? teamHref(a) : '#';
+        card.setAttribute('role', 'status');
+        card.innerHTML =
+            '<span class="alert-popup-icon" aria-hidden="true">' +
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+            '</span>' +
+            '<span class="alert-popup-body">' +
+                '<span class="alert-popup-title">Robot broken <span class="alert-popup-time">now</span></span>' +
+                '<span class="alert-popup-msg">' + esc(a.message) + '</span>' +
+            '</span>' +
+            '<button type="button" class="alert-popup-close" aria-label="Dismiss">&times;</button>' +
+            '<span class="alert-popup-timer" aria-hidden="true"></span>';
+
+        var gone = false;
+        function dismiss() {
+            if (gone) return;
+            gone = true;
+            card.classList.remove('show');
+            setTimeout(function () { card.remove(); }, 260);
+        }
+        card.querySelector('.alert-popup-close').addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dismiss();
+        });
+
+        // Hovering pauses the auto-dismiss so it can be read.
+        var remaining = 7000, startedAt = 0, timer = null;
+        function run() { startedAt = Date.now(); timer = setTimeout(dismiss, remaining); card.classList.remove('paused'); }
+        function pause() { clearTimeout(timer); remaining -= Date.now() - startedAt; card.classList.add('paused'); }
+        card.addEventListener('mouseenter', pause);
+        card.addEventListener('mouseleave', run);
+
+        popups.appendChild(card);
+        while (popups.children.length > 3) { popups.firstElementChild.remove(); }
+        requestAnimationFrame(function () { requestAnimationFrame(function () { card.classList.add('show'); }); });
+        run();
+
+        try { if (navigator.vibrate) navigator.vibrate([60, 40, 60]); } catch (e) {}
+    }
+
+    /* ---- Public API so pages can push their own alerts ----
+       Same key = same notification: a second report only adds its scout. */
+    window.pushBellAlert = function (a) {
+        a.key = a.key || String(a.id);
+        a.scouts = a.scouts || [];
+        var existing = alerts.find(function (x) { return x.key === a.key; });
+        if (existing) {
+            a.scouts.forEach(function (s) {
+                if (s && existing.scouts.indexOf(s) === -1) existing.scouts.push(s);
+            });
+            renderList();
+            return;
+        }
+        alerts.unshift(a);
+        if (alerts.length > 50) alerts.pop();
+        renderList();
+        updateBadge();
+
+        if (!panelOpen && a.id > state.poppedThrough) {
+            state.poppedThrough = Math.max(state.poppedThrough, a.id);
+            saveState();
+            showPopup(a);
+        }
+    };
+
+    function closeOtherDropdowns() {
+        document.querySelectorAll('[data-bs-toggle="dropdown"].show').forEach(function (t) {
+            var inst = window.bootstrap && window.bootstrap.Dropdown.getInstance(t);
+            if (inst) { inst.hide(); }
+        });
+    }
+
+    // Opening a Bootstrap dropdown (Strategy, language, settings) closes the alerts.
+    document.addEventListener('show.bs.dropdown', function () { if (panelOpen) closePanel(); });
+
+    function markAllSeen() {
+        alerts.forEach(function (a) { state.seenThrough = Math.max(state.seenThrough, a.id); });
+        saveState();
+        updateBadge();
+    }
+
+    function openPanel() {
+        closeOtherDropdowns();
+        panelOpen = true;
+        panel.style.display = 'flex';
+        renderList();       // unread rows stay highlighted while the panel is open
+        markAllSeen();
+    }
+
+    function closePanel() {
+        panelOpen = false;
+        panel.style.display = 'none';
+        renderList();
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        panelOpen ? closePanel() : openPanel();
+    });
+
+    clearBtn && clearBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        state.clearedThrough = Math.max(state.clearedThrough, latestId);
+        state.seenThrough = Math.max(state.seenThrough, latestId);
+        state.poppedThrough = Math.max(state.poppedThrough, latestId);
+        saveState();
+        alerts = [];
+        renderList();
+        updateBadge();
+    });
+
+    document.addEventListener('click', function (e) {
+        if (panelOpen && !panel.contains(e.target) && !btn.contains(e.target)) closePanel();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && panelOpen) closePanel();
+    });
+
+    renderList();
+    updateBadge();
+
+    /* ---- Poll the server for broken-robot reports ---- */
+    if (!comp || comp === 'testing') return;
+
+    function poll() {
+        fetch('/api/alerts/?comp=' + encodeURIComponent(comp) + '&since_id=' + latestId, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+            if (!data || !Array.isArray(data.alerts)) return;
+            // The backlog fetched on page load fills the list quietly; only
+            // reports that arrive while the page is open get a popup.
+            if (firstPoll) {
+                firstPoll = false;
+                data.alerts.forEach(function (a) {
+                    state.poppedThrough = Math.max(state.poppedThrough, a.id);
+                });
+            }
+            latestId = Math.max(latestId, data.latest_id || 0);
+            data.alerts.forEach(function (a) {
+                window.pushBellAlert({
+                    id: a.id,
+                    key: 'broken:' + a.quantifier + ':' + a.match_number + ':' + a.team_number,
+                    team: a.team_number,
+                    message: 'Team ' + a.team_number + ' reported broken in ' +
+                             a.quantifier + ' match ' + a.match_number,
+                    scouts: a.scout_name ? [a.scout_name] : [],
+                    ts: Date.now(),
+                });
+            });
+            // A full page means more may be waiting.
+            if (data.alerts.length >= 20) setTimeout(poll, 500);
+        })
+        .catch(function () {});
+    }
+
+    setTimeout(poll, 1500);
+    setInterval(function () {
+        if (document.visibilityState === 'visible') poll();
+    }, 15000);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') poll();
+    });
+})();
+</script>
+
+<!-- ======================================================
+     ACCENT COLOR · MOTION SETTINGS
+====================================================== -->
+<script>
+(function () {
+  /* ---- Accent Color ---- */
+  var DEFAULT_ACCENT = '#E63946';
+  var DEFAULT_ACCENT_HOVER = '#D62828';
+  var DARK_ACCENT = '#FF4D4D';
+  var DARK_ACCENT_HOVER = '#FF6666';
+
+  function hexToRgb(hex) {
+    var r = parseInt(hex.slice(1,3),16);
+    var g = parseInt(hex.slice(3,5),16);
+    var b = parseInt(hex.slice(5,7),16);
+    return r + ',' + g + ',' + b;
+  }
+
+  function applyAccent(hex) {
+    var isDark = document.documentElement.classList.contains('inverted');
+    var h = document.documentElement;
+    h.style.setProperty('--accent', hex);
+    // Darken by ~15% for hover
+    var r = parseInt(hex.slice(1,3),16);
+    var g = parseInt(hex.slice(3,5),16);
+    var b = parseInt(hex.slice(5,7),16);
+    var hover = '#' + [r,g,b].map(function(c){ return Math.max(0,Math.round(c*0.85)).toString(16).padStart(2,'0'); }).join('');
+    h.style.setProperty('--accent-hover', hover);
+    var inp = document.getElementById('accent-color-input');
+    if (inp) inp.value = hex;
+  }
+
+  var storedAccent = localStorage.getItem('accentColor');
+  if (storedAccent) applyAccent(storedAccent);
+
+  var colorInput = document.getElementById('accent-color-input');
+  if (colorInput) {
+    colorInput.value = storedAccent || DEFAULT_ACCENT;
+    var colorDebounce;
+    colorInput.addEventListener('input', function () {
+      clearTimeout(colorDebounce);
+      colorDebounce = setTimeout(function () {
+        localStorage.setItem('accentColor', colorInput.value);
+        applyAccent(colorInput.value);
+      }, 80);
+    });
+  }
+
+  var resetBtn = document.getElementById('accent-reset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      var isDark = document.documentElement.classList.contains('inverted');
+      var def = isDark ? DARK_ACCENT : DEFAULT_ACCENT;
+      localStorage.removeItem('accentColor');
+      document.documentElement.style.removeProperty('--accent');
+      document.documentElement.style.removeProperty('--accent-hover');
+      if (colorInput) colorInput.value = def;
+    });
+  }
+
+  /* ---- Reduce Motion ---- */
+  var motionBtn = document.getElementById('motion-toggle');
+
+  function setMotion(reduced) {
+    window.applyMotionPref(reduced);
+    localStorage.setItem('reduceMotion', reduced ? '1' : '0');
+    syncMotionLabel();
+  }
+
+  function syncMotionLabel() {
+    if (!motionBtn) return;
+    var reduced = document.documentElement.classList.contains('no-motion');
+    motionBtn.textContent = reduced ? 'Animations Off' : 'Animations On';
+  }
+
+  if (motionBtn) {
+    motionBtn.addEventListener('click', function () {
+      setMotion(!document.documentElement.classList.contains('no-motion'));
+    });
+  }
+
+  /* State was already applied in <head>; only the label needs catching up.
+     Nothing is written to localStorage until the user actually toggles, so
+     the OS preference keeps being followed until then. */
+  syncMotionLabel();
+
+})();
+</script>
+
+<!-- ======================================================
+     REDUCE MOTION CSS
+====================================================== -->
+<style>
+html.no-motion *,
+html.no-motion *::before,
+html.no-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.1ms !important;
+}
+
+/* OS-level preference — only while the user has not switched
+   animations on in Settings (html.motion-ok). */
+@media (prefers-reduced-motion: reduce) {
+  html:not(.motion-ok) *,
+  html:not(.motion-ok) *::before,
+  html:not(.motion-ok) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.1ms !important;
+  }
+}
+</style>
+
+
 {% block Scripts %}{% endblock %}
+
+<script>
+// Brief haptic tick when a nav control is tapped. Mobile only - desktop
+// browsers simply have no vibrate implementation, so this is a no-op there.
+(function () {
+    if (!navigator.vibrate) return;
+    document.addEventListener('pointerdown', function (ev) {
+        if (ev.pointerType !== 'touch') return;
+        var hit = ev.target.closest &&
+                  ev.target.closest('.nav-link, .nav-icon-btn, .dropdown-item, .hamburger-btn');
+        if (!hit) return;
+        try { navigator.vibrate(8); } catch (e) {}
+    }, { passive: true });
+})();
+</script>
+
+<script>
+/* Sliding nav pill.
+   Measures the hovered link and moves one shared element to it. Falls back to
+   the active page's link when the pointer leaves, so the bar always shows
+   where you are rather than going blank. */
+(function () {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    function setup(nav) {
+        if (!nav || nav.querySelector(':scope > .nav-pill')) return;
+
+        var pill = document.createElement('span');
+        pill.className = 'nav-pill no-anim';
+        nav.appendChild(pill);
+
+        var current = null;
+
+        function moveTo(link, animate) {
+            if (!link) { pill.style.opacity = '0'; current = null; return; }
+
+            var nb = nav.getBoundingClientRect();
+            var lb = link.getBoundingClientRect();
+            if (!lb.width || !lb.height) { pill.style.opacity = '0'; return; }
+
+            // Pad slightly around the text so the pill hugs rather than clips.
+            var padX = 6, padY = 3;
+            if (!animate) { pill.classList.add('no-anim'); }
+
+            pill.style.width  = (lb.width + padX * 2) + 'px';
+            pill.style.height = (lb.height + padY * 2) + 'px';
+            pill.style.transform =
+                'translate(' + (lb.left - nb.left - padX) + 'px,' + (lb.top - nb.top - padY) + 'px)';
+            pill.style.opacity = '1';
+
+            if (!animate) {
+                // Flush, then re-enable transitions for subsequent moves.
+                void pill.offsetWidth;
+                pill.classList.remove('no-anim');
+            }
+            current = link;
+        }
+
+        function activeLink() {
+            return nav.querySelector('.nav-link.active-page');
+        }
+
+        function rest() { moveTo(activeLink(), true); }
+
+        nav.addEventListener('pointerover', function (ev) {
+            var link = ev.target.closest && ev.target.closest('.nav-link');
+            if (link && nav.contains(link)) { moveTo(link, current !== null); }
+        });
+
+        nav.addEventListener('pointerleave', rest);
+        nav.addEventListener('focusin', function (ev) {
+            var link = ev.target.closest && ev.target.closest('.nav-link');
+            if (link) { moveTo(link, true); }
+        });
+        nav.addEventListener('focusout', rest);
+
+        // Re-measure when the bar reflows: resize, collapse toggle, font load.
+        var settle;
+        function remeasure() {
+            clearTimeout(settle);
+            settle = setTimeout(function () { moveTo(current || activeLink(), false); }, 60);
+        }
+        window.addEventListener('resize', remeasure);
+        if (document.fonts && document.fonts.ready) { document.fonts.ready.then(remeasure); }
+        var collapse = document.getElementById('navbarSupportedContent');
+        if (collapse) {
+            new MutationObserver(remeasure).observe(collapse, {
+                attributes: true, attributeFilter: ['class', 'style']
+            });
+        }
+
+        // Initial placement, un-animated so it does not fly in from the corner.
+        moveTo(activeLink(), false);
+    }
+
+    function init() {
+        document.querySelectorAll('.navbar-nav').forEach(setup);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else { init(); }
+})();
+</script>
+
+<script>
+/* Brand burst on click. Navigation is delayed briefly so the effect is seen;
+   modifier-clicks and middle-clicks are left alone so "open in new tab" still
+   works normally. */
+(function () {
+    var HOLD = 320;   // ms of burst before the page changes
+    var reduce = window.matchMedia &&
+                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function burst(x, y) {
+        var layer = document.createElement('div');
+        layer.className = 'brand-burst';
+        layer.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+
+        var ring = document.createElement('span');
+        ring.className = 'brand-burst-ring';
+        layer.appendChild(ring);
+
+        var ring2 = document.createElement('span');
+        ring2.className = 'brand-burst-ring delayed';
+        layer.appendChild(ring2);
+
+        var COLORS = [
+            'var(--accent)',
+            'color-mix(in srgb, var(--accent) 55%, white)',
+            'color-mix(in srgb, var(--accent) 75%, orange)'
+        ];
+        var COUNT = 16;
+
+        for (var i = 0; i < COUNT; i++) {
+            var sp = document.createElement('span');
+            sp.className = 'brand-spark';
+            // Even spread, jittered so it does not read as a mechanical star.
+            var angle = (i / COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+            var dist  = 42 + Math.random() * 46;
+            var size  = 3 + Math.random() * 4;
+            sp.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+            sp.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+            sp.style.setProperty('--s', size.toFixed(1) + 'px');
+            sp.style.setProperty('--c', COLORS[i % COLORS.length]);
+            sp.style.setProperty('--d', (0.46 + Math.random() * 0.26).toFixed(2) + 's');
+            layer.appendChild(sp);
+        }
+
+        document.body.appendChild(layer);
+        setTimeout(function () {
+            if (layer.parentNode) { layer.parentNode.removeChild(layer); }
+        }, 900);
+    }
+
+    document.addEventListener('click', function (ev) {
+        var brand = ev.target.closest && ev.target.closest('.navbar-brand');
+        if (!brand) return;
+
+        // Respect the browser's own navigation gestures.
+        if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+
+        var href = brand.getAttribute('href');
+
+        if (!reduce) {
+            burst(ev.clientX, ev.clientY);
+            var logo = brand.querySelector('.brand-logo');
+            var text = brand.querySelector('.brand-text');
+            [logo, text].forEach(function (el) {
+                if (!el) return;
+                el.classList.remove('popping');
+                void el.offsetWidth;          // restart the animation on repeat clicks
+                el.classList.add('popping');
+                el.addEventListener('animationend', function () {
+                    el.classList.remove('popping');
+                }, { once: true });
+            });
+            if (navigator.vibrate) { try { navigator.vibrate(14); } catch (e) {} }
+        }
+
+        // Already on the target page: let the burst play, do not reload.
+        var here = window.location.pathname + window.location.search;
+        if (!href || href === here) { ev.preventDefault(); return; }
+
+        if (reduce) return;               // navigate immediately, no hold
+
+        ev.preventDefault();
+        setTimeout(function () { window.location.href = href; }, HOLD);
+    });
+})();
+</script>
+
+<script>
+/* Competition picker.
+   Enhances #comp without replacing it: every choice is written back to the
+   native select and a `change` event dispatched, so the existing handler that
+   stores localStorage and navigates continues to own that behaviour. */
+(function () {
+    var select = document.getElementById('comp');
+    if (!select || select.dataset.enhanced) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'compdd';
+    select.parentNode.insertBefore(wrap, select);
+    wrap.appendChild(select);
+    select.classList.add('compdd-native');
+    select.dataset.enhanced = '1';
+    select.setAttribute('tabindex', '-1');
+
+    var trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'compdd-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.innerHTML =
+        '<span class="compdd-dot"></span>' +
+        '<span class="compdd-label">Competition</span>' +
+        '<svg class="compdd-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+        '<polyline points="6 9 12 15 18 9"/></svg>';
+    wrap.appendChild(trigger);
+
+    var panel = document.createElement('div');
+    panel.className = 'compdd-panel';
+    panel.setAttribute('role', 'listbox');
+    wrap.appendChild(panel);
+
+    var search = document.createElement('input');
+    search.className = 'compdd-search';
+    search.type = 'text';
+    search.placeholder = 'Search competitions...';
+
+    var listHost = document.createElement('div');
+
+    var CHECK = '<svg class="compdd-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+                'stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+                '<polyline points="20 6 9 17 4 12"/></svg>';
+
+    function options() {
+        return Array.prototype.slice.call(select.options);
+    }
+
+    function syncLabel() {
+        var opt = select.options[select.selectedIndex];
+        wrap.querySelector('.compdd-label').textContent =
+            (opt && opt.textContent.trim()) || 'Competition';
+    }
+
+    function render(filter) {
+        var q = (filter || '').trim().toLowerCase();
+        var opts = options().filter(function (o) {
+            return !q || o.textContent.toLowerCase().indexOf(q) !== -1 ||
+                   o.value.toLowerCase().indexOf(q) !== -1;
+        });
+
+        if (!opts.length) {
+            listHost.innerHTML = '<div class="compdd-empty">No competitions match</div>';
+            return;
+        }
+
+        listHost.innerHTML = opts.map(function (o, i) {
+            var sel = o.value === select.value;
+            var name = o.textContent.trim();
+            // Trailing digits of the event code make a compact badge, e.g.
+            // "2026casac" -> "SAC"; fall back to the first letters of the name.
+            var tail = (o.value.match(/[A-Za-z]+$/) || [name])[0];
+            var badge = tail.slice(0, 3).toUpperCase();
+            return '<div class="compdd-opt' + (sel ? ' selected' : '') + '" role="option" ' +
+                   'aria-selected="' + sel + '" data-value="' + o.value.replace(/"/g, '&quot;') + '" ' +
+                   'style="animation-delay:' + Math.min(i * 34, 340) + 'ms">' +
+                   '<span class="compdd-ico">' + badge.replace(/</g, '&lt;') + '</span>' +
+                   '<span class="compdd-body">' +
+                     '<span class="compdd-name">' + name.replace(/</g, '&lt;') + '</span>' +
+                     '<span class="compdd-code">' + o.value.replace(/</g, '&lt;') + '</span>' +
+                   '</span>' +
+                   CHECK +
+                   '</div>';
+        }).join('');
+    }
+
+    // Only show the search box once the list is long enough to need it.
+    function buildPanel() {
+        panel.innerHTML = '';
+        if (options().length > 6) { panel.appendChild(search); }
+        panel.appendChild(listHost);
+        render(search.value);
+    }
+
+    function open() {
+        buildPanel();
+        wrap.classList.add('open');
+        trigger.setAttribute('aria-expanded', 'true');
+        if (panel.contains(search)) { setTimeout(function () { search.focus(); }, 40); }
+    }
+
+    function close() {
+        wrap.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+        search.value = '';
+    }
+
+    function choose(value) {
+        if (value === select.value) { close(); return; }
+        select.value = value;
+        syncLabel();
+        close();
+        // Let the page's own handler do the navigating.
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        if (typeof select.onchange === 'function') { select.onchange(); }
+    }
+
+    trigger.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        wrap.classList.contains('open') ? close() : open();
+    });
+
+    listHost.addEventListener('click', function (ev) {
+        var row = ev.target.closest && ev.target.closest('.compdd-opt');
+        if (row) { choose(row.dataset.value); }
+    });
+
+    search.addEventListener('input', function () { render(search.value); });
+    search.addEventListener('click', function (ev) { ev.stopPropagation(); });
+
+    document.addEventListener('click', function (ev) {
+        if (!wrap.contains(ev.target)) { close(); }
+    });
+
+    document.addEventListener('keydown', function (ev) {
+        if (!wrap.classList.contains('open')) return;
+        if (ev.key === 'Escape') { close(); trigger.focus(); return; }
+
+        var rows = Array.prototype.slice.call(listHost.querySelectorAll('.compdd-opt'));
+        if (!rows.length) return;
+        var at = rows.findIndex(function (r) { return r.classList.contains('active'); });
+
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            if (at !== -1) { rows[at].classList.remove('active'); }
+            var next = ev.key === 'ArrowDown'
+                ? (at + 1) % rows.length
+                : (at <= 0 ? rows.length - 1 : at - 1);
+            rows[next].classList.add('active');
+            rows[next].scrollIntoView({ block: 'nearest' });
+        } else if (ev.key === 'Enter') {
+            ev.preventDefault();
+            var pick = at !== -1 ? rows[at] : rows[0];
+            if (pick) { choose(pick.dataset.value); }
+        }
+    });
+
+    // The select is filled asynchronously from /get_events/, so wait for it.
+    new MutationObserver(function () {
+        syncLabel();
+        if (wrap.classList.contains('open')) { render(search.value); }
+    }).observe(select, { childList: true });
+
+    syncLabel();
+})();
+</script>
 </body>
 </html>

@@ -4,6 +4,7 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.http import require_POST
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from authenticate.models import AuthorizedUser
 from teams.models import Team_Match_Data
 from django.db.models import Count
@@ -23,10 +24,26 @@ def admin_required(function):
         email = request.session.get("email")
         if not email:
             return HttpResponseRedirect('/auth/')
-        if not AuthorizedUser.objects.filter(email=email).exists():
+        user = AuthorizedUser.objects.filter(email__iexact=email).first()
+        if not user or not user.is_admin:
             return HttpResponseRedirect('/auth/unauthorized/')
         return function(request, *args, **kw)
     return wrapper
+
+
+def _lock_authorized_users():
+    return list(AuthorizedUser.objects.select_for_update().order_by('id'))
+
+
+def _is_last_admin(user):
+    if not user.is_admin:
+        return False
+    other_roles = AuthorizedUser.objects.exclude(pk=user.pk).values_list('roles', flat=True)
+    return not any(
+        'admin' in {role.strip() for role in roles.split(',')}
+        for roles in other_roles
+    )
+
 
 @admin_required
 def admin_panel(request):
@@ -83,9 +100,16 @@ def admin_panel(request):
     except Exception:
         site_settings = None
     theme_color = (site_settings.theme_color if site_settings else '#e74c3c')
-    logo_url = (site_settings.logo_url if site_settings else '/static/images/EagleForceLogo.png')
+    logo_url = (site_settings.logo_url if site_settings else '/static/images/logo.png')
+
+    try:
+        from hours_app.seasons import current_season
+        hours_season = current_season()
+    except Exception:
+        hours_season = None
 
     return render(request, 'authenticate/admin.html', {
+        'hours_season': hours_season,
         'users': users,
         'leaderboard': leaderboard,
         'comp_code': comp_code,
@@ -93,6 +117,7 @@ def admin_panel(request):
         'plugins': plugin_info,
         'theme_color': theme_color,
         'logo_url': logo_url,
+        'role_choices': AuthorizedUser.ROLE_CHOICES,
     })
 
 @admin_required
@@ -102,15 +127,30 @@ def add_user(request):
         if email:
             try:
                 validate_email(email)
-                AuthorizedUser.objects.get_or_create(email=email)
+                role = request.POST.get('role', 'student')
+                if role not in AuthorizedUser.VALID_ROLES:
+                    role = 'student'
+                obj, created = AuthorizedUser.objects.get_or_create(
+                    email=email,
+                    defaults={'roles': role}
+                )
             except ValidationError:
                 pass  # silently reject malformed addresses
     return redirect('/admin-panel/')
 
 @admin_required
 @require_POST
+@transaction.atomic
 def remove_user(request, user_id):
-    AuthorizedUser.objects.filter(id=user_id).delete()
+    _lock_authorized_users()
+    user = AuthorizedUser.objects.filter(id=user_id).first()
+    if user and _is_last_admin(user):
+        return JsonResponse(
+            {'status': 'error', 'message': 'The last administrator cannot be removed.'},
+            status=409,
+        )
+    if user:
+        user.delete()
     return redirect('/admin-panel/')
 
 @admin_required
@@ -373,3 +413,145 @@ def admin_set_logo_url(request):
         if _is_ajax(request):
             return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred'}, status=400)
         return redirect('admin_panel')
+
+
+@admin_required
+@require_POST
+@transaction.atomic
+def update_user_role(request, user_id):
+    valid_roles = AuthorizedUser.VALID_ROLES
+    submitted = request.POST.getlist('roles')
+    if not submitted:
+        single = request.POST.get('role', '')
+        submitted = [single] if single else []
+    roles = [r for r in submitted if r in valid_roles]
+    if not roles:
+        roles = ['student']
+    try:
+        _lock_authorized_users()
+        user = AuthorizedUser.objects.get(id=user_id)
+        if user.is_admin and 'admin' not in roles and _is_last_admin(user):
+            return JsonResponse(
+                {'status': 'error', 'message': 'The last administrator cannot be demoted.'},
+                status=409,
+            )
+        user.roles = ','.join(sorted(roles))
+        user.save(update_fields=['roles'])
+        return JsonResponse({'status': 'success', 'roles': roles})
+    except AuthorizedUser.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'User not found'}, status=404)
+
+
+@admin_required
+def hours_overview(request):
+    """Return hours stats JSON for the admin panel."""
+    from django.http import JsonResponse
+    from django.contrib.auth.models import User
+    from django.utils import timezone
+    try:
+        from hours_app.models import CheckInOut, SeasonRank
+        # Active sessions right now
+        active = CheckInOut.objects.filter(check_out_time__isnull=True).select_related('user').order_by('check_in_time')
+        active_list = [{
+            'id': s.id,
+            'name': (s.user.get_full_name() or s.user.username),
+            'email': s.user.email,
+            'check_in_time': s.check_in_time.strftime('%H:%M') if s.check_in_time else '--',
+        } for s in active]
+
+        # Top 10 rankings
+        top = SeasonRank.objects.select_related('user').order_by('-total_hours')[:10]
+        rankings = [{
+            'name': (r.user.get_full_name() or r.user.username),
+            'hours': round(r.total_hours, 1),
+        } for r in top]
+
+        return JsonResponse({'active': active_list, 'rankings': rankings, 'active_count': len(active_list)})
+    except Exception as e:
+        return JsonResponse({'error': str(e), 'active': [], 'rankings': [], 'active_count': 0})
+
+@admin_required
+def member_profiles(request):
+    """Member profile pictures and about-me text, for moderation."""
+    try:
+        from hours_app.models import UserProfile
+        profiles = (
+            UserProfile.objects
+            .select_related('user')
+            .order_by('-avatar_url', 'user__first_name', 'user__username')
+        )
+        members = [{
+            'user_id': p.user_id,
+            'name': p.user.get_full_name() or p.user.username,
+            'email': p.user.email,
+            'role': p.get_role_display(),
+            'avatar_url': p.avatar_url,
+            'initials': p.initials,
+            'about': p.about,
+            'has_picture': bool(p.avatar_url),
+        } for p in profiles]
+        return JsonResponse({
+            'members': members,
+            'with_pictures': sum(1 for m in members if m['has_picture']),
+            'total': len(members),
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e), 'members': [], 'with_pictures': 0, 'total': 0})
+
+
+@admin_required
+@require_POST
+def member_reset_avatar(request, user_id):
+    """Clear a member's profile picture from the admin panel."""
+    try:
+        from hours_app.models import UserProfile
+        profile = UserProfile.objects.select_related('user').filter(user_id=user_id).first()
+        if not profile:
+            return JsonResponse({'error': 'No profile for that user'}, status=404)
+        had = bool(profile.avatar_url)
+        profile.avatar_url = ''
+        profile.save(update_fields=['avatar_url'])
+        return JsonResponse({
+            'status': 'success',
+            'had_picture': had,
+            'initials': profile.initials,
+            'name': profile.user.get_full_name() or profile.user.username,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@admin_required
+def hours_checkout_all(request):
+    """Force check out all active sessions."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        from hours_app.models import CheckInOut
+        from django.utils import timezone
+        count = CheckInOut.objects.filter(check_out_time__isnull=True).update(check_out_time=timezone.now())
+        return JsonResponse({'status': 'success', 'count': count})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@admin_required
+@require_POST
+def hours_end_season(request):
+    """Close the open hours season: everyone is checked out, totals are saved,
+    and the hours app becomes read-only until a new season starts."""
+    from hours_app.seasons import end_season
+    end_season()
+    return redirect('/admin-panel/#section-hours')
+
+
+@admin_required
+@require_POST
+def hours_start_season(request):
+    """Open a new season. Every member's total starts again from zero; past
+    seasons' records stay in the database."""
+    from hours_app.seasons import start_season
+    name = request.POST.get('name', '').strip()[:60]
+    if name:
+        start_season(name)
+    return redirect('/admin-panel/#section-hours')

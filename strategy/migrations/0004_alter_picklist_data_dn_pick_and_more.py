@@ -2,6 +2,8 @@
 
 from django.db import migrations
 
+from ._pg_only import PostgresOnlyRunSQL
+
 
 class Migration(migrations.Migration):
     """
@@ -16,19 +18,19 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql="ALTER TABLE strategy_picklist_data ALTER COLUMN dn_pick TYPE jsonb USING to_jsonb(dn_pick);",
             reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql="ALTER TABLE strategy_picklist_data ALTER COLUMN first_pick TYPE jsonb USING to_jsonb(first_pick);",
             reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql="ALTER TABLE strategy_picklist_data ALTER COLUMN second_pick TYPE jsonb USING to_jsonb(second_pick);",
             reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql="ALTER TABLE strategy_picklist_data ALTER COLUMN third_pick TYPE jsonb USING to_jsonb(third_pick);",
             reverse_sql=migrations.RunSQL.noop,
         ),

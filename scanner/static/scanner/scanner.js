@@ -77,11 +77,96 @@ function addToHistory(scouterName, teamNum, matchNum, status) {
     }
 }
 
-// ── Server POST ───────────────────────────────────────
-function post_data_to_server(data, scouterName, teamNum, matchNum) {
-    setFeedback('sending', 'Sending…');
+// ── Offline outbox ────────────────────────────────────
+// Venue wi-fi drops constantly, so a scan that cannot reach the server is
+// queued locally and retried instead of being lost. Validation failures are
+// NOT queued: that data is bad and would retry forever.
+var OUTBOX_KEY = 'scanner_outbox_v1';
+var OUTBOX_MAX = 500;
+var flushing   = false;
 
-    fetch("/scanner/", {
+// ── Online / offline mode ─────────────────────────────
+// Online: every scan is sent as soon as it is read (and queued if that fails).
+// Offline: scans go straight into the outbox with no network attempt, for
+// stands with no usable wi-fi. Switching back to online uploads the queue.
+var MODE_KEY = 'scanner_mode';
+
+function scanMode() {
+    try { return localStorage.getItem(MODE_KEY) === 'offline' ? 'offline' : 'online'; }
+    catch (e) { return 'online'; }
+}
+
+function setScanMode(mode) {
+    try { localStorage.setItem(MODE_KEY, mode); } catch (e) {}
+    syncModeUI();
+    if (mode === 'online') {
+        flushOutbox();
+    } else {
+        setFeedback('queued', 'Offline mode: scans are saved on this device');
+    }
+}
+
+function syncModeUI() {
+    var mode = scanMode();
+    document.querySelectorAll('[data-scan-mode]').forEach(function (b) {
+        var on = b.getAttribute('data-scan-mode') === mode;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var page = document.querySelector('.scanner-page');
+    if (page) page.classList.toggle('is-offline-mode', mode === 'offline');
+    var hint = document.getElementById('scan-mode-hint');
+    if (hint) {
+        hint.textContent = mode === 'offline'
+            ? 'Scans are stored on this device. Switch to Online or tap Upload when you have wi-fi.'
+            : (navigator.onLine ? 'Scans upload as soon as they are read.'
+                                : 'No connection: scans will queue and upload when wi-fi returns.');
+    }
+}
+
+document.querySelectorAll('[data-scan-mode]').forEach(function (b) {
+    b.addEventListener('click', function () { setScanMode(b.getAttribute('data-scan-mode')); });
+});
+window.addEventListener('online', syncModeUI);
+window.addEventListener('offline', syncModeUI);
+syncModeUI();
+
+function outboxRead() {
+    try { return JSON.parse(localStorage.getItem(OUTBOX_KEY)) || []; }
+    catch (e) { return []; }
+}
+
+function outboxWrite(items) {
+    try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(items.slice(-OUTBOX_MAX))); }
+    catch (e) { /* private mode or quota: queueing is best-effort */ }
+}
+
+function outboxAdd(entry) {
+    var items = outboxRead();
+    items.push(entry);
+    outboxWrite(items);
+    updateOutboxBadge();
+}
+
+function updateOutboxBadge() {
+    var el = document.getElementById('outbox-badge');
+    var up = document.getElementById('outbox-upload');
+    var n = outboxRead().length;
+    if (el) {
+        el.hidden = !n;
+        el.textContent = n + ' scan' + (n === 1 ? '' : 's') + ' saved on this device';
+    }
+    if (up) {
+        up.hidden = !n;
+        up.disabled = flushing;
+        up.textContent = flushing ? 'Uploading…' : 'Upload ' + n + ' now';
+    }
+}
+
+// Resolves on success. Rejects with err.retryable set when the scan should be
+// kept for a later attempt.
+function sendScan(qrData) {
+    return fetch("/scanner/", {
         method: 'POST',
         credentials: 'include',
         mode: 'same-origin',
@@ -91,28 +176,127 @@ function post_data_to_server(data, scouterName, teamNum, matchNum) {
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRFToken': getCookie('csrftoken'),
         },
-        body: JSON.stringify({ qr_data: data })
+        body: JSON.stringify({ qr_data: qrData })
     })
-    .then(response => {
-        return response.text().then(text => {
-            let json;
+    .catch(function (networkErr) {
+        // fetch only rejects when the request never completed.
+        var e = new Error('Offline — queued');
+        e.retryable = true;
+        throw e;
+    })
+    .then(function (response) {
+        return response.text().then(function (text) {
+            var json;
             try { json = JSON.parse(text); } catch (_) {
-                throw new Error(response.status === 401 ? 'Not authenticated — please log in' : `Server error (${response.status})`);
+                var pe = new Error(response.status === 401
+                    ? 'Not authenticated — please log in'
+                    : 'Server error (' + response.status + ')');
+                // 5xx is transient; 401 means a human must act.
+                pe.retryable = response.status >= 500;
+                throw pe;
             }
-            if (!response.ok) throw new Error(json.error || `Server error (${response.status})`);
+            if (!response.ok) {
+                var se = new Error(json.error || ('Server error (' + response.status + ')'));
+                se.retryable = response.status >= 500;
+                throw se;
+            }
             return json;
         });
-    })
-    .then(() => {
-        const name = scouterName || 'Unknown';
-        setFeedback('success', `Saved — ${name}`);
-        vibrateOnSuccess(150);
-        addToHistory(scouterName, teamNum, matchNum, 'success');
-    })
-    .catch(error => {
-        setFeedback('error', `Error: ${error.message}`);
-        addToHistory(scouterName, teamNum, matchNum, 'error');
     });
+}
+
+// ── Server POST ───────────────────────────────────────
+function post_data_to_server(data, scouterName, teamNum, matchNum) {
+    if (scanMode() === 'offline') {
+        outboxAdd({
+            qr_data: data, scout: scouterName,
+            team: teamNum, match: matchNum, ts: Date.now()
+        });
+        setFeedback('queued', 'Saved offline — ' + (scouterName || 'Unknown'));
+        vibrateOnSuccess(150);
+        addToHistory(scouterName, teamNum, matchNum, 'queued');
+        return;
+    }
+
+    setFeedback('sending', 'Sending…');
+
+    sendScan(data)
+        .then(function () {
+            setFeedback('success', 'Saved — ' + (scouterName || 'Unknown'));
+            vibrateOnSuccess(150);
+            addToHistory(scouterName, teamNum, matchNum, 'success');
+            flushOutbox();
+        })
+        .catch(function (error) {
+            if (error.retryable) {
+                outboxAdd({
+                    qr_data: data, scout: scouterName,
+                    team: teamNum, match: matchNum, ts: Date.now()
+                });
+                setFeedback('queued', 'Queued — will send when back online');
+                vibrateOnSuccess(80);
+                addToHistory(scouterName, teamNum, matchNum, 'queued');
+            } else {
+                setFeedback('error', 'Error: ' + error.message);
+                addToHistory(scouterName, teamNum, matchNum, 'error');
+            }
+        });
+}
+
+// Drain the queue oldest-first. Stops at the first retryable failure so the
+// order is preserved and we do not hammer a server that is still unreachable.
+function flushOutbox() {
+    if (flushing) return Promise.resolve();
+    var items = outboxRead();
+    if (!items.length) return Promise.resolve();
+
+    flushing = true;
+    updateOutboxBadge();
+    var remaining = items.slice();
+
+    function step() {
+        if (!remaining.length) return Promise.resolve();
+        var entry = remaining[0];
+        return sendScan(entry.qr_data)
+            .then(function () {
+                remaining.shift();
+                outboxWrite(remaining);
+                updateOutboxBadge();
+                addToHistory(entry.scout, entry.team, entry.match, 'success');
+                return step();
+            })
+            .catch(function (err) {
+                if (err.retryable) return Promise.resolve();   // try again later
+                // Permanently bad: drop it so it cannot block the queue forever.
+                remaining.shift();
+                outboxWrite(remaining);
+                updateOutboxBadge();
+                addToHistory(entry.scout, entry.team, entry.match, 'error');
+                return step();
+            });
+    }
+
+    return step().finally(function () {
+        flushing = false;
+        var left = outboxRead().length;
+        if (!left) { setFeedback('success', 'All queued scans sent'); }
+        updateOutboxBadge();
+    });
+}
+
+// Automatic uploads only happen in online mode; offline mode waits for the
+// Upload button or a switch back to online.
+function autoFlush() { if (scanMode() === 'online' && navigator.onLine) flushOutbox(); }
+window.addEventListener('online', autoFlush);
+window.addEventListener('load', function () { updateOutboxBadge(); autoFlush(); });
+setInterval(autoFlush, 30000);
+
+var uploadBtn = document.getElementById('outbox-upload');
+if (uploadBtn) uploadBtn.addEventListener('click', function () { flushOutbox(); });
+
+// Let the page open without wi-fi next time (see /scanner/sw.js).
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/scanner/sw.js', { scope: '/scanner/' }).catch(function () {});
 }
 
 // ── Feedback indicator ────────────────────────────────

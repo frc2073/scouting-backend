@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+from ._pg_only import PostgresOnlyRunSQL
+
 
 class Migration(migrations.Migration):
 
@@ -10,7 +12,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql="ALTER TABLE strategy_picklist_data ALTER COLUMN no_pick TYPE jsonb USING to_jsonb(no_pick);",
             reverse_sql=migrations.RunSQL.noop,
         ),

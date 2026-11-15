@@ -33,6 +33,18 @@ if (window.dashboardInitialized) {
             }
 
             dashboardTable.innerHTML = '';
+            // Show 6 skeleton rows while loading
+            var colCount = dashboardTable.closest('table').querySelectorAll('thead th').length || 9;
+            var skelHtml = '';
+            for (var s = 0; s < 6; s++) {
+                skelHtml += '<tr class="skeleton-row">';
+                for (var c = 0; c < colCount; c++) {
+                    var w = [60, 55, 45, 50, 50, 50, 45, 45, 40][c] || 50;
+                    skelHtml += '<td><div class="skel" style="width:' + w + '%"></div></td>';
+                }
+                skelHtml += '</tr>';
+            }
+            dashboardTable.innerHTML = skelHtml;
             console.log("Table cleared, starting fetch");
 
             fetch("", {
@@ -62,11 +74,13 @@ if (window.dashboardInitialized) {
                 if (!data.red || !data.blue) {
                     throw new Error('Invalid data format received from server');
                 }
+                dashboardTable.innerHTML = '';
                 console.log("Processing data for match:", match);
 
                 // Process red alliance
                 (data.red_teams || []).forEach((redTeam, index) => {
                     const row = dashboardTable.insertRow();
+                    row.style.animationDelay = (index * 40) + 'ms';
                     row.insertCell().textContent = `Red ${index + 1}`;
                     row.insertCell().textContent = redTeam;
                     row.insertCell().textContent = data.red[redTeam]?.autoLeave || '0';
@@ -83,6 +97,7 @@ if (window.dashboardInitialized) {
                 // Process blue alliance
                 (data.blue_teams || []).forEach((blueTeam, index) => {
                     const row = dashboardTable.insertRow();
+                    row.style.animationDelay = ((index + 3) * 40) + 'ms';
                     row.insertCell().textContent = `Blue ${index + 1}`;
                     row.insertCell().textContent = blueTeam;
                     row.insertCell().textContent = data.blue[blueTeam]?.autoLeave || '0';
@@ -97,6 +112,16 @@ if (window.dashboardInitialized) {
                 });
 
                 console.log("Table population complete");
+
+                // Notify simulation script with the team lists
+                document.dispatchEvent(new CustomEvent('dashboardMatchLoaded', {
+                    detail: {
+                        redTeams:  data.red_teams  || [],
+                        blueTeams: data.blue_teams || [],
+                        quantifier: document.getElementById('quantifier').value,
+                        comp: new URLSearchParams(window.location.search).get('comp') || ''
+                    }
+                }));
             })
             .catch(error => {
                 console.error('Error:', error);

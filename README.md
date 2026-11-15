@@ -10,6 +10,10 @@ A dynamic, production-ready scouting system for FIRST Robotics Competition (FRC)
 - **Admin Panel**: User management, scout leaderboard, and match data editor
 - **QR Code Scanner**: Fast data collection from scouting sheets
 - **Strategy Dashboard**: Real-time match analysis and team rankings
+- **Live Picklist Board**: Drag-and-drop alliance selection that syncs across devices, with star/strike flags, robot-attribute filters, per-metric column sorting and undo
+- **Team Comparison**: Side-by-side match averages, pit data and notes for up to four teams
+- **Scout Accuracy**: Cross-checks scouts who covered the same match to surface disagreements
+- **Match Simulation**: Projects alliance outcomes from scouted averages
 - **Pit Scouting**: Dynamic forms generated from configuration
 - **Legacy Key Support**: Rename metrics mid-season without losing historical data
 
@@ -35,8 +39,8 @@ A dynamic, production-ready scouting system for FIRST Robotics Competition (FRC)
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-org/scouting-backend-2025.git
-cd scouting-backend-2025
+git clone https://github.com/Tetsuyubi/frc-scouting-system.git
+cd frc-scouting-system
 ```
 
 ### 2. Environment Setup
@@ -44,7 +48,7 @@ cd scouting-backend-2025
 Copy the example environment file and fill in your credentials:
 
 ```bash
-cp env.txt .env
+cp .env.example .env
 ```
 
 Edit `.env` with your credentials:
@@ -88,16 +92,28 @@ npm run build
 # Run migrations
 python manage.py migrate
 
-# Create first admin user (via Django shell)
+# Create the first administrator (via Django shell)
 python manage.py shell
 ```
 
 In the shell:
-- Note of course that it is not strictly bound to Team2073 and any emails can be used
+- Any email domain works; the authorised-user list is not tied to a particular one.
 ```python
 from authenticate.models import AuthorizedUser
-AuthorizedUser.objects.create(email='your-email@team2073.com')
+AuthorizedUser.objects.create(email='you@example.com', roles='admin')
 exit()
+```
+
+Authorized users with other roles are not administrators. To promote an existing
+account, set its roles to include `admin` from the Django shell or promote it
+from the admin panel as an existing administrator. When upgrading an existing
+deployment, promote at least one administrator before switching to this version.
+For example, run this in the Django shell before deploying an upgrade:
+
+```python
+user = AuthorizedUser.objects.get(email='existing-admin@example.com')
+user.roles = 'admin'
+user.save(update_fields=['roles'])
 ```
 
 ### 6. Collect Static Files
@@ -130,9 +146,9 @@ sudo apt install python3 python3-pip python3-venv nodejs npm postgresql nginx
 
 2. Clone and setup:
 ```bash
-git clone https://github.com/your-org/scouting-backend-2025.git
-cd scouting-backend-2025
-cp env.txt .env
+git clone https://github.com/Tetsuyubi/frc-scouting-system.git
+cd frc-scouting-system
+cp .env.example .env
 # Edit .env with your credentials
 ```
 
@@ -155,7 +171,7 @@ After=network.target postgresql.service
 
 [Service]
 User=your-username
-WorkingDirectory=/path/to/scouting-backend-2025
+WorkingDirectory=/path/to/frc-scouting-system
 Environment="PATH=/usr/bin:/usr/local/bin"
 ExecStart=/usr/bin/python3 manage.py runserver 0.0.0.0:8000
 Restart=always
@@ -203,7 +219,7 @@ server {
     }
 
     location /static/ {
-        alias /path/to/scouting-backend-2025/staticfiles/;
+        alias /path/to/frc-scouting-system/staticfiles/;
     }
 }
 ```
@@ -218,7 +234,7 @@ sudo systemctl restart nginx
 **Updating the Application:**
 
 ```bash
-cd /path/to/scouting-backend-2025
+cd /path/to/frc-scouting-system
 git pull
 ./build.sh
 sudo systemctl restart scouting
@@ -289,7 +305,7 @@ Access at `/admin-panel/` after logging in.
 ## Project Structure
 
 ```
-scouting-backend-2025/
+frc-scouting-system/
 ├── api/                    # The Blue Alliance API integration
 ├── authenticate/           # OAuth login, user management, admin panel
 ├── frontend/               # JavaScript source files (Webpack)
@@ -339,7 +355,7 @@ Via admin panel at `/admin-panel/` or Django shell:
 
 ```python
 from authenticate.models import AuthorizedUser
-AuthorizedUser.objects.create(email='user@team2073.com')
+AuthorizedUser.objects.create(email='you@example.com')
 ```
 
 ## Troubleshooting
@@ -382,13 +398,6 @@ Ensure `STATIC_ROOT` is set in `settings.py`.
 
 MIT License - see LICENSE file for details
 
-## Team
-
-Developed by FRC Team 2073 EagleForce
-
 ## Support
 
-For issues or questions:
-- Open a GitHub issue
-- Contact team leadership
-- ChatGPT
+Open a GitHub issue for bugs or questions.

@@ -353,6 +353,16 @@ body.comfortable #rankings_table td {
 .pit-clear:hover {
     text-decoration: underline;
 }
+
+/* Phones: the controls wrap instead of forcing the page wider than the screen. */
+@media (max-width: 640px) {
+    .rankings-controls { flex-wrap: wrap; width: 100%; }
+    .rankings-controls select { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 38px; }
+    .rankings-controls select[name="min_matches"] { width: auto !important; }
+    .rankings-controls input[type="search"] { flex: 1 1 100%; width: 100%; min-height: 38px; box-sizing: border-box; }
+    .rankings-controls label { min-height: 38px; }
+    .rankings-controls input[type="checkbox"] { width: 20px; height: 20px; }
+}
 </style>
 {% endblock %}
 
@@ -362,7 +372,7 @@ body.comfortable #rankings_table td {
     <!-- Page Header -->
     <div class="rankings-page-header">
         <div>
-            <h2 class="rankings-title">Rankings</h2>
+            <h1 class="rankings-title">Rankings</h1>
             <p class="rankings-subtitle">{{ selected_quantifier }} · {{ comp_code }}</p>
         </div>
         <!-- Controls: quantifier + sort + filters + search -->
@@ -395,6 +405,17 @@ body.comfortable #rankings_table td {
             {% if excluded_count > 0 %}
             <span style="font-size:0.75rem;color:var(--accent);">{{ excluded_count }} match{{ excluded_count|pluralize:"es" }} excluded</span>
             {% endif %}
+            <!-- Auto-refresh toggle -->
+            <button type="button" id="auto-refresh-btn" style="
+                display:flex;align-items:center;gap:5px;
+                background:var(--bg-elevated);color:var(--muted-text);
+                border:1px solid var(--border);border-radius:8px;
+                padding:5px 10px;font-size:0.78rem;font-weight:600;cursor:pointer;
+                transition:all 0.15s;
+            ">
+                <span id="auto-refresh-dot" style="width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background 0.2s;"></span>
+                Auto-refresh
+            </button>
         </form>
     </div>
 
@@ -459,7 +480,7 @@ body.comfortable #rankings_table td {
                 </thead>
                 <tbody>
                     {% for team_number, team_stats in team_averages.items %}
-                    <tr style="animation-delay: {{ forloop.counter0 }}0ms">
+                    <tr style="{% if forloop.counter0 < 16 %}animation-delay:{{ forloop.counter0|stringformat:'d' }}0ms{% endif %}">
                         <td class="rank">
                             {% if forloop.counter == 1 %}<span class="rank-medal gold">1</span>
                             {% elif forloop.counter == 2 %}<span class="rank-medal silver">2</span>
@@ -535,8 +556,8 @@ body.comfortable #rankings_table td {
 
 <!-- Match Detail Modal -->
 <div id="match-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
-    <div style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;max-width:700px;width:92%;max-height:80vh;overflow:auto;padding:20px;position:relative;">
-        <button onclick="document.getElementById('match-modal').style.display='none'"
+    <div role="dialog" aria-modal="true" aria-labelledby="modal-title" style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;max-width:700px;width:92%;max-height:80vh;overflow:auto;padding:20px;position:relative;">
+        <button id="match-modal-close-btn" onclick="closeMatchModal()"
                 style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--text);font-size:1.4rem;cursor:pointer;">&times;</button>
         <h3 id="modal-title" style="margin:0 0 12px;color:var(--text);font-weight:700;"></h3>
         <p style="font-size:0.8rem;color:var(--muted-text);margin:0 0 10px;">Click ✕ to exclude a match from rankings. Click ✓ to re-include.</p>
@@ -561,7 +582,7 @@ body.comfortable #rankings_table td {
 
 <script>
 function showTeamInfo(teamNum, comp, quantifier) {
-    document.getElementById('match-modal').style.display = 'none';
+    if (document.getElementById('match-modal').style.display !== 'none') closeMatchModal();
     var modal = document.getElementById('team-info-modal');
     modal.style.display = 'flex';
 
@@ -692,11 +713,46 @@ document.getElementById('team-info-modal').addEventListener('click', function(e)
     if (e.target === this) this.style.display = 'none';
 });
 
+var matchModalLastFocused = null;
+
+function getMatchModalFocusable() {
+    var modal = document.getElementById('match-modal');
+    return Array.prototype.slice.call(
+        modal.querySelectorAll('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])')
+    ).filter(function (el) { return el.offsetParent !== null; });
+}
+
+function trapMatchModalFocus(e) {
+    if (e.key !== 'Tab') return;
+    var focusable = getMatchModalFocusable();
+    if (!focusable.length) return;
+    var first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+    }
+}
+
+function closeMatchModal() {
+    document.getElementById('match-modal').style.display = 'none';
+    document.removeEventListener('keydown', trapMatchModalFocus);
+    if (matchModalLastFocused && typeof matchModalLastFocused.focus === 'function') {
+        matchModalLastFocused.focus();
+    }
+    matchModalLastFocused = null;
+}
+
 function showMatchDetail(teamNum, comp, quantifier) {
     document.getElementById('team-info-modal').style.display = 'none';
+    matchModalLastFocused = document.activeElement;
     var modal = document.getElementById('match-modal');
     document.getElementById('modal-title').textContent = 'Team ' + teamNum + ' — Individual Matches';
     modal.style.display = 'flex';
+    document.getElementById('match-modal-close-btn').focus();
+    document.addEventListener('keydown', trapMatchModalFocus);
 
     fetch('/api/team_matches/' + teamNum + '/?comp=' + comp + '&quantifier=' + quantifier)
         .then(function(r) { return r.json(); })
@@ -816,6 +872,36 @@ function getCsrf() {
     searchInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') e.preventDefault();
     });
+})();
+</script>
+
+<!-- Auto-refresh -->
+<script>
+(function () {
+    var btn  = document.getElementById('auto-refresh-btn');
+    var dot  = document.getElementById('auto-refresh-dot');
+    if (!btn) return;
+
+    var INTERVAL = 30000;
+    var timer    = null;
+    var active   = false;
+
+    function setActive(on) {
+        active = on;
+        localStorage.setItem('rankingsAutoRefresh', on ? '1' : '0');
+        dot.style.background = on ? 'var(--accent)' : 'var(--border)';
+        btn.style.color       = on ? 'var(--accent)' : 'var(--muted-text)';
+        btn.style.borderColor = on ? 'color-mix(in srgb, var(--accent) 40%, var(--border))' : 'var(--border)';
+        if (on) {
+            timer = setInterval(function () { location.reload(); }, INTERVAL);
+        } else {
+            clearInterval(timer);
+            timer = null;
+        }
+    }
+
+    btn.addEventListener('click', function () { setActive(!active); });
+    if (localStorage.getItem('rankingsAutoRefresh') === '1') setActive(true);
 })();
 </script>
 {% endblock %}

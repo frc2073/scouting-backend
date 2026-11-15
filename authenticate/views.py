@@ -3,6 +3,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 import google_auth_oauthlib.flow
 import requests
+from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 
 from .models import AuthorizedUser
 from django.views.decorators.http import require_POST
@@ -29,12 +30,14 @@ client_config = {
         "redirect_uris": [
             "http://localhost:8000/auth/oauth2callback/",
             "http://127.0.0.1:8000/auth/oauth2callback/",
+            "https://scouting.team2073.com/auth/oauth2callback/",
             "https://scouting.chrisccluk.live/auth/oauth2callback/",
             "https://scout.chrisccluk.live/auth/oauth2callback/"
         ],
         "javascript_origins": [
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            "https://scouting.team2073.com",
             "https://scouting.chrisccluk.live",
             "https://scout.chrisccluk.live"
         ]
@@ -89,7 +92,16 @@ def oauth2callback(request):
 
     # Use the authorization server's response to fetch the OAuth 2.0 tokens.
     authorization_response = request.build_absolute_uri()
-    flow.fetch_token(authorization_response=authorization_response)
+    try:
+        flow.fetch_token(authorization_response=authorization_response)
+    except (requests.exceptions.RequestException, OAuth2Error):
+        if _DEBUG:
+            os.environ.pop('OAUTHLIB_INSECURE_TRANSPORT', None)
+        return render(request, 'authenticate/unauthorized.html', {'email': 'Login failed — please try again'})
+
+    # Single-use values — clear now that the token exchange succeeded
+    request.session.pop('oauth_state', None)
+    request.session.pop('oauth_code_verifier', None)
 
     # Single-use values — clear now that the token exchange succeeded
     request.session.pop('oauth_state', None)
@@ -105,24 +117,37 @@ def oauth2callback(request):
     cred = credentials_to_dict(credentials)
     request.session['credentials'] = cred
 
-    r = requests.get('https://www.googleapis.com/oauth2/v2/userinfo',
-                     headers={'Authorization': f'Bearer {cred["token"]}'},
-                     timeout=10).json()
+    try:
+        r = requests.get('https://www.googleapis.com/oauth2/v2/userinfo',
+                         headers={'Authorization': f'Bearer {cred["token"]}'},
+                         timeout=10).json()
+    except (requests.exceptions.RequestException, ValueError):
+        return render(request, 'authenticate/unauthorized.html', {'email': 'Login failed — please try again'})
 
-    request.session["name"] = r["given_name"] + " " + r["family_name"]
+    given  = r.get("given_name", "")
+    family = r.get("family_name", "")
+    request.session["name"] = (given + " " + family).strip() or r.get("name", "User")
 
-    email = r["email"]
-    
-    # Check database for authorization - database is the single source of truth.
-    # @team2073.com domain is still accepted as a fallback for team members not yet added.
-    if AuthorizedUser.objects.filter(email=email).exists() or email.endswith('@team2073.com'):
+    email = r.get("email")
+    if not email:
+        return render(request, 'authenticate/unauthorized.html', {'email': 'Login failed — please try again'})
+
+    email = email.strip().lower()
+    authorized_user = AuthorizedUser.objects.filter(email__iexact=email).first()
+    if authorized_user or email.endswith('@team2073.com'):
         is_authorized = True
     else:
         return render(request, 'authenticate/unauthorized.html', {'email': email})
-    
+
+    roles = authorized_user.get_roles_list() if authorized_user else []
+    role = ','.join(roles) or 'student'
+    is_admin = bool(authorized_user and authorized_user.is_admin)
+
     request.session["email"] = email
     request.session["is_authorized"] = is_authorized
-    
+    request.session["is_admin"] = is_admin
+    request.session["role"] = role
+
     return redirect('/')
 
 

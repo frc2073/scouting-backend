@@ -13,24 +13,6 @@
     padding: 1.25rem 0.5rem;
 }
 
-.picklist-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.picklist-header h2 {
-    margin: 0;
-    font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 800;
-    color: var(--text);
-    font-size: 1.5rem;
-    letter-spacing: -0.03em;
-}
-
 /* =========================
    Search Bar
    ========================= */
@@ -153,9 +135,42 @@
 }
 
 @media (max-width: 640px) {
+    /* One column at a time, swiped left to right, instead of a 2-wide grid
+       that pushed the later picks into rows below the fold. Each column
+       snaps into place and the next one peeks in from the right so it is
+       obvious the board keeps going. */
     .picklist-board {
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        grid-template-columns: none;
+        overflow-x: auto;
+        align-items: start;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 0.5rem;
+        padding-bottom: 0.3rem;
     }
+    .picklist-board::-webkit-scrollbar { display: none; }
+
+    .picklist-col {
+        flex: 0 0 84%;
+        scroll-snap-align: start;
+    }
+
+    .lists { max-height: 64vh; }
+
+    /* A swipe scrolls the board; press and hold on a card starts a drag.
+       With touch-action:none (the desktop rule) every touch was claimed for
+       dragging, so the board could not be scrolled by touch at all. */
+    .picklist_teams { touch-action: pan-x pan-y; }
+
+    /* Once a card is in hand every touch belongs to the drag. Locking body
+       overflow here would also disable the drag's own vertical auto-scroll,
+       so the gesture is blocked at the card instead of at the page. */
+    body.is-dragging .picklist_teams { touch-action: none; }
+
+    /* Snap points fight the programmatic edge scroll mid-drag. */
+    body.is-dragging .picklist-board { scroll-snap-type: none; }
 }
 
 /* Column Header */
@@ -180,6 +195,42 @@
 .col-header.col-second    { border-left: 3px solid color-mix(in srgb, var(--accent) 65%, #fff); color: color-mix(in srgb, var(--accent) 65%, #fff); }
 .col-header.col-third     { border-left: 3px solid color-mix(in srgb, var(--accent) 40%, var(--muted-text)); color: color-mix(in srgb, var(--accent) 40%, var(--muted-text)); }
 .col-header.col-dnp       { border-left: 3px solid var(--muted-text); color: var(--muted-text); }
+
+/* Inline scouting stats on each team card */
+.team-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 3px;
+}
+.tstat {
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--muted-text) 14%, transparent);
+    color: var(--muted-text);
+    white-space: nowrap;
+}
+.tstat-rank  { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.tstat-good  { background: color-mix(in srgb, #2e7d32 20%, transparent); color: #2e7d32; }
+.tstat-mid   { background: color-mix(in srgb, #f59e0b 22%, transparent); color: #b45309; }
+.tstat-low   { background: color-mix(in srgb, #c62828 18%, transparent); color: #c62828; }
+.tstat-muted { opacity: 0.7; }
+html.inverted .tstat-good { color: #4ade80; }
+html.inverted .tstat-mid  { color: #fbbf24; }
+html.inverted .tstat-low  { color: #f87171; }
+
+.pool-sort {
+    margin-left: auto;
+    font-size: 0.68rem;
+    padding: 2px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: inherit;
+}
 
 .col-count {
     font-size: 0.7rem;
@@ -215,22 +266,64 @@
 .lists::-webkit-scrollbar { width: 4px; }
 .lists::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+/* Gap showing where a dragged card will land */
+.picklist-placeholder {
+    list-style: none;
+    margin: 0 0 0.35rem;
+    border-radius: 8px;
+    border: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    transition: height 0.12s ease;
+}
+
+/* The card follows the pointer, so it must not be clipped by its list */
+/* transform is owned by the drag script (scale + tilt), so it is not set here */
+
+.lists {
+    transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
 .lists.drag-over {
-    background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
-    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Show the card is grabbable before anyone tries, and keep the grabbing
+   cursor everywhere once a drag is underway. */
+.picklist_teams { cursor: grab; }
+body.is-dragging,
+body.is-dragging .picklist_teams { cursor: grabbing !important; }
+
+/* Non-target columns recede slightly so the live one stands out. */
+body.is-dragging .lists:not(.drag-over) { opacity: 0.85; }
+
+.picklist-placeholder {
+    animation: gapOpen 0.18s cubic-bezier(0.22,1,0.36,1) both;
+}
+@keyframes gapOpen {
+    from { transform: scaleY(0.6); opacity: 0; }
+    to   { transform: scaleY(1);   opacity: 1; }
+}
+
+/* Motion here is decoration; honour a system preference to skip it. */
+@media (prefers-reduced-motion: reduce) {
+    .picklist_teams,
+    .picklist-placeholder,
+    .lists { transition: none !important; animation: none !important; }
 }
 
 /* =========================
-   Team Chip
+   Team Card
    ========================= */
 .picklist_teams {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 4px;
-    padding: 5px 7px;
-    border-radius: 7px;
-    background: var(--bg);
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--bg-elevated);
     border: 1px solid var(--border);
     cursor: grab;
     transition:
@@ -242,49 +335,153 @@
     user-select: none;
     animation: chipEntry 0.28s var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both;
     touch-action: none;
+    position: relative;
 }
 
 @keyframes chipEntry {
-    from { opacity: 0; transform: scale(0.92) translateY(6px); }
+    from { opacity: 0; transform: scale(0.94) translateY(8px); }
     to   { opacity: 1; transform: none; }
 }
 
 .picklist_teams:hover {
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-    transform: translateY(-1px);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
 }
 
 .picklist_teams:active { cursor: grabbing; }
 
+/* The card being held travels with the pointer, so it must read as lifted
+   rather than dimmed. `transition: none` keeps the tilt responsive - the base
+   .picklist_teams rule transitions transform, which would otherwise lag it.
+   The settle animation sets its own inline transition, so it still overrides. */
 .picklist_teams.being-dragged {
-    opacity: 0.4;
-    transform: scale(0.97);
-    box-shadow: none;
+    opacity: 0.98;
+    box-shadow: 0 18px 42px rgba(0,0,0,0.32);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    transition: none;
+    cursor: grabbing;
+    will-change: left, top, transform;
 }
 
-.picklist_teams p {
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin: 0;
-    padding: 0;
+/* =========================
+   Card Inner Layout
+   ========================= */
+.team-card-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.team-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 2px;
+}
+
+.team-logo-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--muted-text);
+}
+
+.team-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+}
+
+.team-number {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+}
+
+.team-nickname {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--muted-text);
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--text);
-    display: inline;
-    line-height: 1.2;
+    max-width: 120px;
 }
 
-.picklist_teams input[type="checkbox"] {
+/* team-number is a button so clicking opens the modal without interfering with drag */
+.team-number-btn {
+    background: none;
+    border: none;
+    padding: 0;
     margin: 0;
-    flex-shrink: 0;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1.2;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
     cursor: pointer;
-    accent-color: var(--accent);
-    width: 13px;
-    height: 13px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    transition: color 0.15s, text-decoration-color 0.15s;
 }
+.team-number-btn:hover {
+    color: var(--accent-hover, #D62828);
+    text-decoration-color: var(--accent);
+}
+
+/* Quick "move to No Pick" box. Drawn by hand instead of the native control,
+   which stayed a white square in dark mode. */
+.picklist_teams input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+    margin-top: 2px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid color-mix(in srgb, var(--muted-text) 55%, var(--border));
+    border-radius: 4px;
+    background: var(--bg);
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    transition: border-color 0.15s, background 0.15s;
+}
+.picklist_teams input[type="checkbox"]::before {
+    content: '';
+    width: 7px; height: 7px;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    background: #fff;
+    transform: scale(0);
+    transition: transform 0.12s ease;
+}
+.picklist_teams input[type="checkbox"]:hover { border-color: var(--accent); }
+.picklist_teams input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+.picklist_teams input[type="checkbox"]:checked::before { transform: scale(1); }
+.picklist_teams input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* =========================
    Save Button
@@ -314,7 +511,7 @@
 }
 
 .save-button:hover {
-    background: var(--accent-hover, #8f0f1f);
+    background: var(--accent-hover, #D62828);
     box-shadow: 0 5px 16px rgba(177,18,38,0.4);
     transform: translateY(-1px);
 }
@@ -324,17 +521,424 @@
 
 /* Legacy save-status (used by picklist.js) - now hidden; badge handles feedback */
 .save-status { display: none !important; }
+
+/* ---- Compare mode ---- */
+.compare-toggle {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.75rem; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--bg-elevated);
+    color: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+.compare-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Compare and Web stats travel as one group, pushed to the right together. */
+.picklist-actions { display: flex; gap: 0.4rem; margin-left: auto; }
+.picklist-actions .compare-toggle { margin-left: 0; }
+
+/* In compare mode the whole card is a selection target, so suppress the
+   grab cursor that would otherwise promise a drag. */
+body.compare-mode .picklist_teams { cursor: pointer; }
+body.compare-mode .picklist_teams.cmp-picked {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.compare-tray {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    z-index: 8500; display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.6rem 0.9rem; border-radius: 14px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+    max-width: calc(100vw - 32px); flex-wrap: wrap;
+}
+.compare-tray[hidden] { display: none; }
+.compare-tray-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; font-weight: 700; }
+.compare-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.compare-chip {
+    font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.5rem;
+    border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent);
+}
+.compare-go, .compare-clear {
+    padding: 0.35rem 0.8rem; border-radius: 9px; border: none;
+    font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+.compare-go { background: var(--accent); color: #fff; }
+.compare-go:disabled { opacity: 0.5; cursor: not-allowed; }
+.compare-clear { background: transparent; color: var(--muted-text); border: 1px solid var(--border); }
+
+.cmp-backdrop {
+    position: fixed; inset: 0; z-index: 9100;
+    background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.cmp-backdrop[hidden] { display: none; }
+/* Uses most of the screen: a comparison is only useful if the columns are
+   wide enough to read side by side. */
+.cmp-modal {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 18px; width: min(1400px, 100%);
+    height: min(900px, calc(100dvh - 32px));
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+    animation: modalIn 0.22s cubic-bezier(0.22,1,0.36,1) both;
+}
+.cmp-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 22px; border-bottom: 1px solid var(--border);
+}
+.cmp-title { font-size: 1.1rem; font-weight: 800; flex: 1; letter-spacing: -0.02em; }
+.cmp-legend { font-size: 0.74rem; color: var(--muted-text); display: inline-flex; align-items: center; gap: 6px; }
+.cmp-legend i { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in srgb, #22c55e 30%, transparent); display: inline-block; }
+.cmp-close { background: none; border: none; cursor: pointer; color: var(--muted-text); font-size: 1.2rem; padding: 4px 8px; border-radius: 8px; }
+.cmp-close:hover { background: var(--border); color: var(--text); }
+.cmp-body { padding: 0 22px 22px; overflow: auto; flex: 1; }
+.cmp-loading { text-align: center; padding: 40px; color: var(--muted-text); font-size: 0.9rem; }
+
+/* One grid for the team header and every section, so the columns line up:
+   a fixed label column, then equal shares for each team. */
+.cmp-grid { display: grid; grid-template-columns: minmax(150px, 220px) repeat(var(--cols), minmax(150px, 1fr)); }
+.cmp-teams {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--bg-elevated);
+    padding: 16px 0 12px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+}
+.cmp-team-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    min-width: 0;
+}
+.cmp-team-card img, .cmp-team-card .cmp-logo-ph {
+    width: 44px; height: 44px; border-radius: 10px; object-fit: contain; flex-shrink: 0;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+}
+.cmp-team-num { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--text); }
+.cmp-team-nick { font-size: 0.78rem; color: var(--muted-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+.cmp-team-text { min-width: 0; flex: 1; }
+.cmp-team-link { font-size: 0.72rem; font-weight: 700; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.cmp-team-link:hover { text-decoration: underline; color: var(--accent); }
+
+.cmp-section { margin-top: 20px; }
+.cmp-section > summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted-text); padding: 6px 0;
+}
+.cmp-section > summary::-webkit-details-marker { display: none; }
+.cmp-section > summary::before { content: '\25B8'; transition: transform 0.15s; display: inline-block; }
+.cmp-section[open] > summary::before { transform: rotate(90deg); }
+.cmp-section > summary .cmp-count { font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.8; }
+
+.cmp-rows { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.cmp-row { border-top: 1px solid var(--border); }
+.cmp-row:first-child { border-top: none; }
+.cmp-row:nth-child(even) { background: color-mix(in srgb, var(--bg) 55%, var(--bg-elevated)); }
+.cmp-label {
+    padding: 11px 14px; font-size: 0.84rem; font-weight: 600; color: var(--muted-text);
+    text-transform: capitalize; display: flex; align-items: center;
+}
+.cmp-cell {
+    padding: 11px 14px; font-size: 0.95rem; font-weight: 600; color: var(--text);
+    border-left: 1px solid var(--border);
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+}
+.cmp-cell.cmp-text { font-size: 0.86rem; font-weight: 500; }
+.cmp-cell.cmp-best { background: color-mix(in srgb, #22c55e 14%, transparent); }
+.cmp-cell.cmp-best .cmp-val::after { content: ' \2605'; color: #16a34a; font-size: 0.8em; }
+html.inverted .cmp-cell.cmp-best .cmp-val::after { color: #4ade80; }
+.cmp-bar { height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--border) 70%, transparent); overflow: hidden; }
+.cmp-bar > span { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.cmp-cell.cmp-best .cmp-bar > span { background: #22c55e; }
+.cmp-na { opacity: 0.45; }
+
+@media (max-width: 700px) {
+    .cmp-backdrop { padding: 0; }
+    .cmp-modal { height: 100dvh; border-radius: 0; }
+    .cmp-body { padding: 0 12px 16px; }
+    .cmp-grid { grid-template-columns: 110px repeat(var(--cols), minmax(130px, 1fr)); }
+    .cmp-legend { display: none; }
+}
+
+/* ---------- Filter / sort toolbar ----------
+   Colours come from the theme variables defined in index.html, which
+   html.inverted redefines for dark mode. Nothing here hardcodes a light
+   value, so both themes follow automatically. */
+:root {
+    --pl-star: #f0a500;
+    --pl-strike: #d64545;
+}
+html.inverted {
+    /* Lifted for contrast against the dark surface. */
+    --pl-star: #ffc043;
+    --pl-strike: #ff6b6b;
+}
+
+.picklist-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 0.6rem;
+}
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.toolbar-btn {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem; font-weight: 600;
+    color: inherit;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background var(--dur-fast, 150ms) ease,
+                border-color var(--dur-fast, 150ms) ease,
+                color var(--dur-fast, 150ms) ease;
+}
+.toolbar-btn:hover:not(:disabled) {
+    background: var(--bg-subtle);
+    border-color: var(--accent);
+}
+.toolbar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.toolbar-btn.is-on {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.filter-active-count {
+    min-width: 1.15rem; padding: 0 0.3rem;
+    font-size: 0.7rem; line-height: 1.15rem; text-align: center;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 999px;
+}
+.sort-label { font-size: 0.78rem; color: var(--muted-text); }
+
+#board-sort { margin-left: 0; }
+
+/* ---------- Attribute filters ---------- */
+.picklist-filters {
+    display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-start;
+    padding: 0.7rem 0.85rem; margin: 0 0 0.75rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: var(--shadow-sm);
+}
+.filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
+.filter-group-label {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em;
+    text-transform: uppercase; color: var(--muted-text);
+}
+.filter-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.filter-chip {
+    padding: 0.22rem 0.55rem;
+    font-size: 0.74rem; font-weight: 600;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background var(--dur-fast, 150ms) ease,
+                border-color var(--dur-fast, 150ms) ease,
+                color var(--dur-fast, 150ms) ease;
+}
+.filter-chip:hover { border-color: var(--accent); }
+.filter-chip.is-on {
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.filter-clear {
+    align-self: flex-end; margin-left: auto;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.74rem; color: var(--muted-text);
+    background: none; border: none; cursor: pointer; text-decoration: underline;
+}
+.filter-clear:hover { color: var(--accent); }
+
+/* A card filtered out is hidden outright: dimming it would still leave it
+   occupying space in a column the strategist is trying to scan quickly. */
+.picklist_teams.filtered-out { display: none !important; }
+
+/* ---------- Star / strike ---------- */
+.card-flags {
+    display: flex; flex-direction: column; gap: 2px;
+    margin-left: auto; padding-left: 0.3rem;
+}
+.flag-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; padding: 0;
+    color: var(--muted-text);
+    background: none;
+    border: none; border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity var(--dur-fast, 150ms) ease,
+                color var(--dur-fast, 150ms) ease,
+                background var(--dur-fast, 150ms) ease;
+}
+.flag-btn:hover { opacity: 1; background: var(--bg-subtle); }
+.flag-btn.is-on { opacity: 1; }
+.flag-star.is-on { color: var(--pl-star); }
+.flag-strike.is-on { color: var(--pl-strike); }
+
+/* A struck team stays on the board - the point is to see that it is gone,
+   not to lose track of where it sat in the ranking. */
+.picklist_teams.is-struck .team-number-btn,
+.picklist_teams.is-struck .team-nickname {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    text-decoration-color: var(--pl-strike);
+}
+.picklist_teams.is-struck { opacity: 0.5; }
+.picklist_teams.is-struck .team-logo,
+.picklist_teams.is-struck .team-logo-placeholder { filter: grayscale(1); }
+
+/* color-mix keeps the tint readable on both the light and dark card
+   surfaces instead of baking in a single translucent yellow. */
+.picklist_teams.is-starred {
+    border-left: 3px solid var(--pl-star);
+    background: color-mix(in srgb, var(--pl-star) 12%, var(--bg-elevated));
+}
+
+@media (max-width: 640px) {
+    .picklist-toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-right { justify-content: space-between; }
+    .picklist-filters { gap: 0.6rem; }
+}
+
+
+/* =========================
+   Optional columns + phone tabs
+   ========================= */
+.picklist-col[hidden] { display: none; }
+.col-fourth { background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated)); }
+
+.col-toggles { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.col-toggle { position: relative; margin: 0; cursor: pointer; }
+.col-toggle input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.col-toggle span {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0.38rem 0.7rem; border-radius: 7px;
+    font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+    color: var(--text); background: var(--card-bg, var(--bg-elevated));
+    border: 1px solid var(--border, #d8dde5);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.col-toggle span::before { content: "+"; font-weight: 800; }
+.col-toggle input:checked + span {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated));
+}
+.col-toggle input:checked + span::before { content: "✓"; }
+.col-toggle input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.board-tabs { display: none; }
+
+@media (max-width: 640px) {
+    .board-tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        margin: 0 -0.25rem 0.5rem;
+        padding: 0.35rem 0.25rem;
+        background: var(--bg);
+    }
+    .board-tabs::-webkit-scrollbar { display: none; }
+    .board-tab {
+        flex: 1 0 auto;
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        min-height: 36px; padding: 0 0.7rem;
+        font: inherit; font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+        color: var(--muted-text); background: var(--bg-elevated);
+        border: 1px solid var(--border); border-radius: 999px;
+    }
+    .board-tab .tab-count { font-size: 0.68rem; opacity: 0.8; }
+    .board-tab[aria-current="true"] {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+    }
+    .picklist-toolbar .toolbar-left { flex-wrap: wrap; }
+
+    /* Less chrome above the board: the columns are what this page is for. */
+    .picklist-toolbar { gap: 0.4rem; margin-bottom: 0.35rem; }
+    .toolbar-left { gap: 0.3rem; }
+    .toolbar-btn, .col-toggle span {
+        min-height: 34px; padding: 0.25rem 0.55rem; font-size: 0.74rem;
+    }
+    .toolbar-right { justify-content: flex-end; }
+    .toolbar-right .sort-label { display: none; }
+    .toolbar-right .pool-sort { max-width: 100%; }
+    .col-header { position: sticky; top: 0; z-index: 2; }
+
+    /* Fingertip-sized star / strike / select targets, side by side to save height. */
+    .card-flags { flex-direction: row; gap: 0; }
+    .flag-btn { width: 36px; height: 36px; opacity: 0.7; }
+    .picklist_teams input[type="checkbox"] { width: 24px; height: 24px; }
+}
+
 </style>
 {% endblock %}
 
 {% block Content %}
 <div class="picklist-page">
 
-    <!-- Header -->
-    <div class="picklist-header">
-        <h2>Picklist</h2>
-        <span class="autosave-badge" id="autosave-badge">Auto-save on</span>
-    </div>
+    <!-- Draft room: who we would pick right now, and how the field looks -->
+    <header class="draft-room">
+        <div class="draft-hex" aria-hidden="true"></div>
+        <div class="draft-top">
+            <div class="draft-heading">
+                <div class="draft-kicker">Alliance selection{% if comp_code %} &middot; {{ comp_code|upper }}{% endif %}</div>
+                <h2 class="draft-title">Draft board</h2>
+            </div>
+            <div class="draft-top-right">
+                <span class="autosave-badge" id="autosave-badge">Auto-save on</span>
+                <div class="picklist-actions">
+        <button type="button" id="compare-toggle" class="compare-toggle" onclick="toggleCompareMode()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+            Compare
+        </button>
+        <button type="button" id="web-toggle" class="compare-toggle web-toggle" onclick="openWebStats()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7"/><polygon points="12 7 16.5 9.5 16.5 14.5 12 17 7.5 14.5 7.5 9.5"/></svg>
+            Web stats
+        </button>
+        </div>
+            </div>
+        </div>
+
+        <div class="draft-bottom">
+            <!-- Each pick column is a ranked queue: when a team is taken by
+                 another alliance, the next one in line becomes our pick. -->
+            <div class="draft-alliance draft-queues" aria-label="Best available team in each pick round">
+                <div class="draft-plate" data-col="1st_pick" data-round="1st pick"></div>
+                <div class="draft-plate" data-col="2nd_pick" data-round="2nd pick"></div>
+                <div class="draft-plate" data-col="3rd_pick" data-round="3rd pick"></div>
+                <div class="draft-plate" data-col="4th_pick" data-round="4th pick"></div>
+            </div>
+            <dl class="draft-meter">
+                <div><dt>Available</dt><dd id="draft-available">&ndash;</dd></div>
+                <div><dt>Taken</dt><dd id="draft-taken">&ndash;</dd></div>
+                <div><dt>Starred</dt><dd id="draft-starred">&ndash;</dd></div>
+            </dl>
+        </div>
+    </header>
 
     <!-- Search -->
     <div class="picklist-search-row">
@@ -347,25 +951,92 @@
         <span class="search-match-count" id="picklist-match-count"></span>
     </div>
 
+    <!-- Filter / sort toolbar -->
+    <div class="picklist-toolbar">
+        <div class="toolbar-left">
+            <button type="button" id="filter-toggle" class="toolbar-btn" onclick="togglePicklistFilters()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+                Filter robots
+                <span class="filter-active-count" id="filter-active-count" hidden>0</span>
+            </button>
+            <button type="button" class="toolbar-btn" id="undo-btn" onclick="picklistUndo()" disabled title="Undo the last move (Ctrl+Z)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                Undo
+            </button>
+            <span class="col-toggles" role="group" aria-label="Extra pick columns">
+                <label class="col-toggle"><input type="checkbox" id="toggle-3rd_pick"><span>3rd pick</span></label>
+                <label class="col-toggle"><input type="checkbox" id="toggle-4th_pick"><span>4th pick</span></label>
+            </span>
+        </div>
+        <div class="toolbar-right">
+            <label class="sort-label" for="board-sort">Sort columns</label>
+            <select class="pool-sort" id="board-sort" onchange="sortAllColumns(this.value)" title="Sort every column by this value">
+                <option value="">Manual order</option>
+                <option value="number">Team #</option>
+                <option value="rank">Event rank</option>
+                <option value="driver">Driver rating</option>
+                <option value="matches">Matches scouted</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Attribute filters, generated from the game config's pit questions -->
+    <div class="picklist-filters" id="picklist-filters" hidden>
+        {% for group in filter_groups %}
+        <div class="filter-group" data-key="{{ group.key }}">
+            <span class="filter-group-label">{{ group.label }}</span>
+            <div class="filter-chips">
+                {% for opt in group.options %}
+                <button type="button" class="filter-chip" data-key="{{ group.key }}" data-value="{{ opt }}">{{ opt }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        <button type="button" class="filter-clear" onclick="clearPicklistFilters()">Clear all</button>
+    </div>
+
+    <!-- Phone: jump between columns (the board scrolls sideways) -->
+    <nav class="board-tabs" id="board-tabs" aria-label="Picklist columns"></nav>
+
     <!-- Kanban Board -->
-    <div class="picklist-board">
+    <div class="picklist-board" id="picklist-board">
 
         <!-- No Pick (unassigned pool) -->
         <div class="picklist-col">
             <div class="col-header col-no-pick">
-                No Pick
+                <span class="col-ord col-ord-pool" aria-hidden="true">&#9675;</span><span class="col-name">No pick</span>
                 <span class="col-count" id="count-no_pick">0</span>
+                <select class="pool-sort" id="pool-sort" onchange="sortPool(this.value)" title="Sort the unassigned pool">
+                    <option value="number">Team #</option>
+                    <option value="rank">Event rank</option>
+                    <option value="driver">Driver rating</option>
+                    <option value="matches">Matches scouted</option>
+                </select>
             </div>
             <ol class="lists" id="no_pick" ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
                 {% for team in no_pick_teams %}
-                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}">
-                        <p>{{ team }}</p>
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
                         <input type="checkbox" onchange="chosen(event)">
                     </li>
                 {% endfor %}
                 {% for team in teams %}
-                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}">
-                        <p>{{ team }}</p>
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
                         <input type="checkbox" onchange="chosen(event)">
                     </li>
                 {% endfor %}
@@ -375,13 +1046,20 @@
         <!-- First Pick -->
         <div class="picklist-col">
             <div class="col-header col-first">
-                First Pick
+                <span class="col-ord">1st</span><span class="col-name">First pick</span>
                 <span class="col-count" id="count-1st_pick">0</span>
             </div>
             <ol class="lists" id="1st_pick" ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
                 {% for team in first_pick_teams %}
-                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}">
-                        <p>{{ team }}</p>
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
                         <input type="checkbox" onchange="chosen(event)">
                     </li>
                 {% endfor %}
@@ -391,47 +1069,89 @@
         <!-- Second Pick -->
         <div class="picklist-col">
             <div class="col-header col-second">
-                Second Pick
+                <span class="col-ord">2nd</span><span class="col-name">Second pick</span>
                 <span class="col-count" id="count-2nd_pick">0</span>
             </div>
             <ol class="lists" id="2nd_pick" ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
                 {% for team in second_pick_teams %}
-                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}">
-                        <p>{{ team }}</p>
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
                         <input type="checkbox" onchange="chosen(event)">
                     </li>
                 {% endfor %}
             </ol>
         </div>
 
-        <!-- Third Pick (conditional) -->
-        {% if comp_code == '2024cmptx' %}
-        <div class="picklist-col">
+        <!-- Third Pick (hidden until switched on in the toolbar, or when it has teams) -->
+        <div class="picklist-col" id="colwrap-3rd_pick" data-optional="3rd_pick" hidden>
             <div class="col-header col-third">
-                Third Pick
+                <span class="col-ord">3rd</span><span class="col-name">Third pick</span>
                 <span class="col-count" id="count-3rd_pick">0</span>
             </div>
             <ol class="lists" id="3rd_pick" ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
                 {% for team in third_pick_teams %}
-                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}">
-                        <p>{{ team }}</p>
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
                         <input type="checkbox" onchange="chosen(event)">
                     </li>
                 {% endfor %}
             </ol>
         </div>
-        {% endif %}
+
+        <!-- Fourth Pick (hidden until switched on in the toolbar, or when it has teams) -->
+        <div class="picklist-col" id="colwrap-4th_pick" data-optional="4th_pick" hidden>
+            <div class="col-header col-fourth">
+                <span class="col-ord">4th</span><span class="col-name">Fourth pick</span>
+                <span class="col-count" id="count-4th_pick">0</span>
+            </div>
+            <ol class="lists" id="4th_pick" ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
+                {% for team in fourth_pick_teams %}
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
+                        <input type="checkbox" onchange="chosen(event)">
+                    </li>
+                {% endfor %}
+            </ol>
+        </div>
 
         <!-- Do Not Pick -->
         <div class="picklist-col">
             <div class="col-header col-dnp">
-                Do Not Pick
+                <span class="col-ord col-ord-pool" aria-hidden="true">&times;</span><span class="col-name">Do not pick</span>
                 <span class="col-count" id="count-dnp">0</span>
             </div>
             <ol class="lists" id="dnp" ondrop="onDrop(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)">
                 {% for team in dn_pick_teams %}
-                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}">
-                        <p>{{ team }}</p>
+                    <li draggable="true" ondragstart="onDragStart(event)" class="picklist_teams" ondrop="onDrop(event)" ondragover="onDragOver(event)" id="{{ team }}" data-team="{{ team }}">
+                        <div class="team-card-inner">
+                            <div class="team-logo-placeholder js-logo-wrap"></div>
+                            <div class="team-text">
+                                <button class="team-number-btn" onclick="openTeamModal(event, {{ team }})" draggable="false">{{ team }}</button>
+                                <span class="team-nickname js-nickname"></span>
+                                <span class="team-stats js-stats"></span>
+                            </div>
+                        </div>
                         <input type="checkbox" onchange="chosen(event)">
                     </li>
                 {% endfor %}
@@ -442,7 +1162,7 @@
 
     <!-- Footer -->
     <div class="picklist-footer">
-        <button onclick="saveToDB()" class="save-button btn">💾 Save to Database</button>
+        <button onclick="saveToDB()" class="save-button btn">Save to Database</button>
     </div>
 
     <!-- Legacy status div (hidden; picklist.js needs the DOM node) -->
@@ -450,11 +1170,879 @@
 
 </div><!-- /.picklist-page -->
 
+<!-- Compare tray: appears while compare mode is on -->
+<div id="compare-tray" class="compare-tray" hidden>
+    <span class="compare-tray-label">Comparing</span>
+    <div id="compare-chips" class="compare-chips"></div>
+    <button type="button" class="compare-go" id="compare-go" onclick="openCompare()" disabled>Compare</button>
+    <button type="button" class="compare-clear" onclick="clearCompare()">Clear</button>
+</div>
+
+<!-- Web stats modal: hexagon chart for up to four teams -->
+<div id="web-backdrop" class="cmp-backdrop" hidden onclick="if(event.target===this)closeWebStats()">
+    <div class="cmp-modal web-modal" role="dialog" aria-modal="true" aria-labelledby="web-title">
+        <div class="cmp-head">
+            <div id="web-title" class="cmp-title">Web stats</div>
+            <button type="button" class="cmp-close" onclick="closeWebStats()" aria-label="Close">&#10005;</button>
+        </div>
+        <div class="cmp-body web-body">
+            <form class="web-pick" id="web-pick" autocomplete="off">
+                <label for="web-team-input" class="web-pick-label">Add a team</label>
+                <input id="web-team-input" list="web-team-list" inputmode="numeric" placeholder="Team number" maxlength="6">
+                <datalist id="web-team-list"></datalist>
+                <button type="submit">Add</button>
+                <div class="web-chips" id="web-chips"></div>
+            </form>
+            <div class="web-layout">
+                <div class="web-chart" id="web-chart"></div>
+                <div class="web-side" id="web-side"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Compare Modal -->
+<div id="compare-backdrop" class="cmp-backdrop" hidden onclick="if(event.target===this)closeCompare()">
+    <div class="cmp-modal" role="dialog" aria-modal="true" aria-labelledby="cmp-title">
+        <div class="cmp-head">
+            <div id="cmp-title" class="cmp-title">Team comparison</div>
+            <span class="cmp-legend"><i></i> best in row</span>
+            <button type="button" class="cmp-close" onclick="closeCompare()" aria-label="Close">&#10005;</button>
+        </div>
+        <div id="cmp-body" class="cmp-body">
+            <div class="cmp-loading">Loading&hellip;</div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Data Modal -->
+<div id="team-modal-backdrop" style="
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.45); z-index:9000;
+    align-items:center; justify-content:center;
+    padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+" onclick="if(event.target===this)closeTeamModal()">
+  <div id="team-modal" role="dialog" aria-modal="true" aria-labelledby="tm-number" style="
+      background:var(--bg-elevated); border:1px solid var(--border);
+      border-radius:16px; width:min(640px,95vw); max-height:calc(100vh - 40px);
+      margin:auto; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+      font-family:'Inter',system-ui,sans-serif;
+      animation:modalIn 0.22s cubic-bezier(0.22,1,0.36,1) both;
+  ">
+    <!-- Header -->
+    <div id="tm-header" style="
+        display:flex; align-items:center; gap:14px;
+        padding:18px 20px 14px; border-bottom:1px solid var(--border);
+        position:sticky; top:0; background:var(--bg-elevated); z-index:1;
+    ">
+      <div id="tm-logo-wrap" style="width:48px;height:48px;flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div id="tm-number" style="font-size:1.3rem;font-weight:800;color:var(--text);letter-spacing:-0.03em;"></div>
+        <div id="tm-nickname" style="font-size:0.82rem;color:var(--muted-text);font-weight:500;"></div>
+      </div>
+      <a id="tm-full-link" class="tm-full-link" href="#">
+        Full team page
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+      </a>
+      <button id="tm-close-btn" onclick="closeTeamModal()" style="
+          background:none;border:none;cursor:pointer;
+          color:var(--muted-text);padding:4px;border-radius:8px;
+          font-size:1.2rem;line-height:1;
+          transition:background 0.15s,color 0.15s;
+      " onmouseover="this.style.background='var(--border)';this.style.color='var(--text)'"
+         onmouseout="this.style.background='none';this.style.color='var(--muted-text)'">✕</button>
+    </div>
+    <!-- Body -->
+    <div id="tm-body" style="padding:16px 20px;">
+      <div id="tm-loading" style="text-align:center;padding:24px;color:var(--muted-text);font-size:0.85rem;">Loading…</div>
+      <div id="tm-content" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Move the modal to <body> on load. It is authored inside .page-content, which
+// runs a transform animation, and a transformed ancestor becomes the containing
+// block for position:fixed descendants - that made inset:0 resolve to the
+// content div rather than the viewport, so the dialog sat high instead of centred.
+(function () {
+    // The compare modal and tray need the same treatment: inside the
+    // transformed content div they were clipped to its height, which cut the
+    // comparison in half whenever a search had shortened the board.
+    function reparent() {
+        ['team-modal-backdrop', 'compare-backdrop', 'compare-tray'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && el.parentNode !== document.body) { document.body.appendChild(el); }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', reparent);
+    } else { reparent(); }
+})();
+</script>
+
+<style>
+@keyframes modalIn {
+    from { opacity:0; transform:scale(0.94) translateY(10px); }
+    to   { opacity:1; transform:none; }
+}
+
+
+
+/* =========================================================================
+   DRAFT ROOM
+   The picklist is a draft board: a banner with the alliance we would pick
+   right now, numbered draft order down each pick column, and a TAKEN stamp
+   on teams other alliances have already picked.
+   ========================================================================= */
+.draft-room {
+    position: relative; overflow: hidden; isolation: isolate;
+    margin-bottom: 1rem; padding: 1.1rem 1.25rem 1.2rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background:
+        linear-gradient(115deg, color-mix(in srgb, var(--accent) 13%, transparent) 0%, transparent 42%),
+        var(--bg-elevated);
+}
+/* Honeycomb texture, the same hexagon as the web stats chart. */
+.draft-hex {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath d='M14 0 28 8v16L14 32 0 24V8z M14 32v16' fill='none' stroke='%23E63946' stroke-opacity='0.16' stroke-width='1'/%3E%3C/svg%3E");
+    background-size: 28px 48px;
+    -webkit-mask-image: linear-gradient(100deg, transparent 30%, #000 75%);
+            mask-image: linear-gradient(100deg, transparent 30%, #000 75%);
+}
+.draft-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.draft-kicker { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.draft-title { margin: 0.15rem 0 0; font-size: 1.85rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--text); }
+.draft-top-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.draft-top-right .picklist-actions { margin-left: 0; }
+
+.draft-bottom { display: flex; align-items: stretch; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+.draft-alliance { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+.draft-plate {
+    position: relative;
+    display: flex; flex-direction: column; justify-content: center; gap: 0.35rem;
+    min-width: 230px; min-height: 84px; padding: 0.75rem 0.75rem 0.55rem;
+    border-radius: 12px;
+    border: 1.5px dashed color-mix(in srgb, var(--muted-text) 45%, transparent);
+    background: color-mix(in srgb, var(--bg) 60%, transparent);
+    transition: border-color 0.2s, background 0.2s;
+}
+.draft-plate.is-filled {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    background: var(--bg-elevated);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+.plate-main { display: flex; align-items: center; gap: 0.5rem; }
+.plate-left {
+    margin-left: auto; padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap;
+    font-size: 0.66rem; font-weight: 700; color: var(--muted-text);
+    background: color-mix(in srgb, var(--muted-text) 12%, transparent);
+}
+.plate-next { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted-text); }
+.plate-next em { font-style: normal; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.plate-next i { font-style: normal; opacity: 0.6; }
+.draft-plate.just-changed { animation: plateIn 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes plateIn { from { transform: scale(0.92); } }
+.plate-role {
+    position: absolute; top: -8px; left: 10px;
+    padding: 0 6px; border-radius: 6px;
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted-text); background: var(--bg-elevated);
+}
+.draft-plate.is-filled .plate-role { color: var(--accent); }
+.plate-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: contain; flex-shrink: 0; background: var(--bg); }
+.plate-logo.is-blank { display: inline-block; background: var(--border); }
+.plate-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.plate-text b { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.plate-text small { font-size: 0.7rem; color: var(--muted-text); max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate-open { font-size: 0.78rem; font-weight: 600; color: var(--muted-text); padding-left: 0.3rem; }
+.draft-plate[hidden] { display: none; }
+.draft-queues { gap: 0.75rem; align-items: stretch; padding-top: 0.5rem; }
+
+.draft-meter { display: flex; gap: 0; margin: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-elevated); align-self: center; }
+.draft-meter > div { padding: 0.45rem 0.9rem; border-left: 1px solid var(--border); text-align: center; }
+.draft-meter > div:first-child { border-left: none; }
+.draft-meter dt { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-text); }
+.draft-meter dd { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ---- Column headers: a tab with a big ordinal and a colour bar that steps
+   down from first pick to fourth. ---- */
+.col-header {
+    position: relative;
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.55rem 0.6rem 0.5rem; border-radius: 10px;
+    border-left-width: 1px !important;
+    overflow: hidden;
+    color: var(--text) !important;
+    text-transform: none; letter-spacing: 0;
+}
+.col-header::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+    background: var(--col-bar, var(--border));
+}
+.col-header.col-first  { --col-bar: var(--accent); }
+.col-header.col-second { --col-bar: color-mix(in srgb, var(--accent) 72%, var(--bg-elevated)); }
+.col-header.col-third  { --col-bar: color-mix(in srgb, var(--accent) 48%, var(--bg-elevated)); }
+.col-header.col-fourth { --col-bar: color-mix(in srgb, var(--accent) 30%, var(--bg-elevated)); }
+.col-header.col-dnp    { --col-bar: var(--muted-text); }
+.col-ord {
+    font-size: 1.15rem; font-weight: 900; letter-spacing: -0.04em; line-height: 1;
+    color: color-mix(in srgb, var(--col-bar, var(--muted-text)) 85%, var(--text));
+}
+.col-ord-pool { font-size: 0.95rem; color: var(--muted-text); }
+.col-name { font-size: 0.74rem; font-weight: 700; color: var(--muted-text); text-transform: uppercase; letter-spacing: 0.05em; }
+.col-header .col-count { margin-left: auto; }
+.col-header .pool-sort { margin-left: 0.3rem; }
+
+/* ---- Draft order: a numbered rail down the left of every card in a pick
+   column. CSS counters renumber themselves as cards are dragged. ---- */
+[id="1st_pick"], [id="2nd_pick"], [id="3rd_pick"], [id="4th_pick"] { counter-reset: draft; }
+[id="1st_pick"] > .picklist_teams, [id="2nd_pick"] > .picklist_teams,
+[id="3rd_pick"] > .picklist_teams, [id="4th_pick"] > .picklist_teams {
+    counter-increment: draft;
+    padding-left: 38px;
+}
+[id="1st_pick"] > .picklist_teams::before, [id="2nd_pick"] > .picklist_teams::before,
+[id="3rd_pick"] > .picklist_teams::before, [id="4th_pick"] > .picklist_teams::before {
+    content: counter(draft, decimal-leading-zero);
+    position: absolute; left: 0; top: 0; bottom: 0; width: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 9px 0 0 9px;
+    font-size: 0.74rem; font-weight: 900; font-variant-numeric: tabular-nums;
+    color: var(--muted-text);
+    background: color-mix(in srgb, var(--muted-text) 9%, transparent);
+    border-right: 1px solid var(--border);
+}
+/* The top three of first pick are the ones that matter most on the day. */
+[id="1st_pick"] > .picklist_teams:nth-child(-n+3)::before {
+    color: #fff; background: var(--accent); border-right-color: var(--accent);
+}
+
+/* ---- Taken: stays on the board, stamped, so the order is still readable. ---- */
+.picklist_teams.is-struck { opacity: 1; }
+.picklist_teams.is-struck .team-card-inner { opacity: 0.45; }
+.picklist_teams.is-struck::after {
+    content: 'Taken';
+    position: absolute; right: 72px; top: 50%;
+    transform: translateY(-50%) rotate(-10deg);
+    padding: 1px 7px; border-radius: 4px;
+    border: 2px solid var(--pl-strike); color: var(--pl-strike);
+    font-size: 0.62rem; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase;
+    background: color-mix(in srgb, var(--bg-elevated) 80%, transparent);
+    pointer-events: none;
+}
+
+/* ---- Empty pick columns invite a drop instead of looking broken. ---- */
+.lists.is-empty { position: relative; min-height: 130px; border-style: dashed; }
+.lists.is-empty::after {
+    content: 'Drag teams here';
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; font-weight: 600; color: var(--muted-text);
+    pointer-events: none;
+}
+
+@media (max-width: 640px) {
+    .draft-room { padding: 0.9rem; border-radius: 16px; }
+    .draft-title { font-size: 1.45rem; }
+    .draft-alliance {
+        flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+        margin: 0 -0.9rem; padding: 0.6rem 0.9rem 0.2rem; width: calc(100% + 1.8rem);
+    }
+    .draft-alliance::-webkit-scrollbar { display: none; }
+    .draft-plate { min-width: 230px; flex-shrink: 0; }
+    .draft-meter { width: 100%; }
+    .draft-meter > div { flex: 1; }
+}
+
+/* ---------- Web stats (hexagon chart) ----------
+   Series colours follow a fixed order by position, validated for colour-blind
+   separation; a single team uses the accent. Text never takes series colour. */
+:root {
+    --web-1: #2a78d6; --web-2: #eb6834; --web-3: #1baf7a; --web-4: #eda100;
+}
+html.inverted {
+    --web-1: #3987e5; --web-2: #d95926; --web-3: #199e70; --web-4: #c98500;
+}
+.web-wrap { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.web-svg { width: 100%; max-width: 360px; height: auto; overflow: visible; flex: 0 0 auto; }
+.web-wrap.is-compact .web-svg { max-width: 290px; }
+.web-ring { fill: none; stroke: var(--border); stroke-width: 1; }
+.web-ring.is-outer { stroke: color-mix(in srgb, var(--muted-text) 45%, transparent); }
+.web-spoke { stroke: var(--border); stroke-width: 1; }
+.web-axis-label { font-size: 11px; font-weight: 700; fill: var(--text); }
+.web-axis-sub { font-size: 10px; font-weight: 600; fill: var(--muted-text); }
+.web-shape { stroke-width: 2; stroke-linejoin: round; transition: opacity 0.15s; }
+.web-shape-fill { opacity: 0.16; }
+.web-dot { stroke: var(--bg-elevated); stroke-width: 2; }
+.web-wrap.is-dimming .web-series { opacity: 0.18; }
+.web-wrap.is-dimming .web-series.is-focus { opacity: 1; }
+.web-series { transition: opacity 0.15s; animation: webGrow 0.6s cubic-bezier(0.22,1,0.36,1) both; transform-origin: var(--cx) var(--cy); }
+@keyframes webGrow { from { transform: scale(0.2); opacity: 0; } }
+.web-tip {
+    position: absolute; pointer-events: none; z-index: 5;
+    transform: translate(-50%, calc(-100% - 10px));
+    padding: 0.3rem 0.55rem; border-radius: 8px;
+    background: var(--text); color: var(--bg);
+    font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+}
+.web-tip[hidden] { display: none; }
+.web-legend { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 180px; }
+.web-legend-row {
+    display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center;
+    padding: 6px 8px; border-radius: 9px; border: 1px solid transparent; cursor: default;
+}
+.web-legend-row:hover { border-color: var(--border); background: var(--bg-subtle); }
+.web-swatch { width: 12px; height: 12px; border-radius: 3px; grid-row: span 2; }
+.web-legend-name { font-size: 0.86rem; font-weight: 800; color: var(--text); }
+.web-legend-note { font-size: 0.72rem; color: var(--muted-text); }
+.web-values { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.web-wrap > .web-values { flex: 1 1 220px; width: auto; }
+.web-values th, .web-values td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.web-values th:first-child, .web-values td:first-child { text-align: left; color: var(--muted-text); font-weight: 600; }
+.web-values thead th { font-size: 0.72rem; font-weight: 800; }
+.web-empty { color: var(--muted-text); font-size: 0.85rem; padding: 18px 0; }
+
+.web-modal { width: min(980px, 100%); height: auto; max-height: calc(100dvh - 32px); }
+.web-body { padding-top: 16px; }
+.web-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.web-pick-label { font-size: 0.74rem; font-weight: 700; color: var(--muted-text); }
+.web-pick input {
+    width: 130px; padding: 0.4rem 0.6rem; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 0.85rem;
+}
+.web-pick input:focus { outline: none; border-color: var(--accent); }
+.web-pick button[type="submit"] {
+    padding: 0.4rem 0.8rem; border-radius: 9px; border: none;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 0.8rem; cursor: pointer;
+}
+.web-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: 4px; }
+.web-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.25rem 0.35rem 0.25rem 0.6rem; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg-elevated);
+    font-size: 0.8rem; font-weight: 800; color: var(--text);
+}
+.web-chip i { width: 9px; height: 9px; border-radius: 50%; }
+.web-chip button { border: none; background: none; color: var(--muted-text); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 4px; border-radius: 50%; }
+.web-chip button:hover { color: var(--text); background: var(--border); }
+.web-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(260px, 1fr); gap: 24px; align-items: center; }
+.web-layout .web-svg { max-width: 460px; margin: 0 auto; display: block; }
+.web-side .web-legend { margin-bottom: 14px; }
+@media (max-width: 760px) { .web-layout { grid-template-columns: minmax(0, 1fr); } }
+.web-side { min-width: 0; }
+.cmp-web { padding: 12px 4px 4px; }
+@media (max-width: 640px) {
+    .web-svg, .web-wrap.is-compact .web-svg { max-width: 100%; }
+}
+
+/* ---------- Team modal sections ---------- */
+.tm-section { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.tm-section-last { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+
+.tm-section-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted-text);
+    margin-bottom: 10px;
+}
+.tm-section-note {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--muted-text);
+    opacity: 0.75;
+}
+.tm-empty {
+    color: var(--muted-text);
+    font-size: 0.82rem;
+    margin: 0;
+    padding: 10px 0;
+}
+
+/* Averages — the headline numbers, so they get the most weight */
+.tm-avg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+}
+.tm-avg-card {
+    background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+    border-radius: 10px;
+    padding: 10px 11px;
+}
+.tm-avg-value {
+    font-size: 1.22rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.tm-avg-unit {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted-text);
+    margin-left: 1px;
+}
+.tm-avg-label {
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-text);
+    margin-top: 3px;
+}
+
+/* Pit scouting */
+.tm-pit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+}
+.tm-pit-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+.tm-pit-key {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-text);
+}
+.tm-pit-val {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+}
+
+/* Match history — deliberately dense: it is reference detail, not the headline */
+.tm-match-scroll {
+    max-height: 210px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.tm-match-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+}
+.tm-match-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-elevated);
+    z-index: 1;
+    text-align: left;
+    padding: 5px 7px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    /* Full metric names wrap onto two short lines rather than being abbreviated. */
+    white-space: normal;
+    line-height: 1.15;
+    min-width: 58px;
+    max-width: 96px;
+    vertical-align: bottom;
+}
+.tm-match-table thead th:first-child { min-width: 0; }
+.tm-match-table td {
+    padding: 4px 7px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    color: var(--text);
+}
+.tm-match-table tbody tr:last-child td { border-bottom: none; }
+.tm-match-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--border) 18%, transparent); }
+.tm-match-table .tm-num { text-align: right; }
+.tm-match-table .tm-mnum { font-weight: 700; white-space: nowrap; }
+.tm-match-table .tm-flagcol { width: 1%; text-align: center; padding-left: 4px; padding-right: 4px; }
+.tm-flag {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, #e74c3c 15%, transparent);
+    color: #e74c3c;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+.tm-match-table .tm-comment {
+    color: var(--muted-text);
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tm-match-table tr.tm-excluded { opacity: 0.45; text-decoration: line-through; }
+
+.tm-full-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 11px; border-radius: 9px;
+    font-size: 0.76rem; font-weight: 700; white-space: nowrap;
+    color: var(--accent); text-decoration: none;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    transition: background 0.15s, border-color 0.15s;
+}
+.tm-full-link:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: var(--accent); }
+</style>
+
+<script>
+(function () {
+    var comp = '{{ comp_code|escapejs }}';
+    var lastFocusedTrigger = null;
+
+    function getFocusableInModal() {
+        var modal = document.getElementById('team-modal');
+        return Array.prototype.slice.call(
+            modal.querySelectorAll('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])')
+        ).filter(function (el) { return el.offsetParent !== null; });
+    }
+
+    function trapFocus(e) {
+        if (e.key !== 'Tab') return;
+        var focusable = getFocusableInModal();
+        if (!focusable.length) return;
+        var first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }
+
+    window.openTeamModal = function (e, teamNumber) {
+        e.stopPropagation();   // don't start drag
+        e.preventDefault();
+        lastFocusedTrigger = document.activeElement;
+        var backdrop = document.getElementById('team-modal-backdrop');
+        var loading  = document.getElementById('tm-loading');
+        var content  = document.getElementById('tm-content');
+        backdrop.style.display = 'flex';
+        loading.style.display  = 'block';
+        content.style.display  = 'none';
+        content.innerHTML      = '';
+        document.getElementById('tm-number').textContent   = teamNumber;
+        document.getElementById('tm-full-link').href =
+            '/teams/' + encodeURIComponent(teamNumber) + '/' + (comp ? '?comp=' + encodeURIComponent(comp) : '');
+        document.getElementById('tm-nickname').textContent = '';
+        document.getElementById('tm-logo-wrap').innerHTML  = '';
+        document.getElementById('tm-close-btn').focus();
+        document.addEventListener('keydown', trapFocus);
+
+        fetch('/api/team_info/' + teamNumber + '/?comp=' + encodeURIComponent(comp) + '&quantifier=Quals', {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (data) {
+            // Header
+            var info = (window.TEAM_INFO || {})[teamNumber] || (window.TEAM_INFO || {})[String(teamNumber)] || {};
+            document.getElementById('tm-nickname').textContent = info.nickname || '';
+            var logoWrap = document.getElementById('tm-logo-wrap');
+            if (info.logo_url) {
+                var img = document.createElement('img');
+                img.src = info.logo_url;
+                img.style.cssText = 'width:48px;height:48px;border-radius:50%;object-fit:contain;border:1px solid var(--border);';
+                img.onerror = function () { logoWrap.innerHTML = makePlaceholderSvg(); };
+                logoWrap.appendChild(img);
+            } else {
+                logoWrap.innerHTML = makePlaceholderSvg();
+            }
+
+            // Build content. Order matters here: a strategist wants the
+            // season averages first, then how the robot is built, and only
+            // then the match-by-match detail - so the raw log sits last and
+            // stays compact instead of pushing everything else off screen.
+            var html = '';
+
+            function esc(v) {
+                return String(v === null || v === undefined ? '' : v)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function sectionTitle(text, note) {
+                return '<div class="tm-section-title">' + esc(text)
+                     + (note ? '<span class="tm-section-note">' + esc(note) + '</span>' : '')
+                     + '</div>';
+            }
+
+            // ---- 1. Averages -------------------------------------------
+            var averages = data.averages || [];
+            html += '<div class="tm-section">';
+            if (averages.length) {
+                html += sectionTitle(
+                    'Average Scores',
+                    data.average_match_count
+                        ? 'from ' + data.average_match_count + ' match' + (data.average_match_count === 1 ? '' : 'es')
+                        : ''
+                );
+                html += '<div class="tm-avg-grid">';
+                averages.forEach(function (a) {
+                    html += '<div class="tm-avg-card">'
+                          + '<div class="tm-avg-value">' + esc(a.value) + '<span class="tm-avg-unit">' + esc(a.unit || '') + '</span></div>'
+                          + '<div class="tm-avg-label">' + esc(a.label) + '</div>'
+                          + '</div>';
+                });
+                html += '</div>';
+            } else {
+                html += sectionTitle('Average Scores');
+                html += '<p class="tm-empty">No scouted matches to average yet.</p>';
+            }
+            html += '</div>';
+
+            // ---- Web stats ---------------------------------------------
+            html += '<div class="tm-section">' + sectionTitle('Web stats', 'scaled to the best team at this event')
+                  + '<div class="tm-web" id="tm-web"></div></div>';
+
+            // ---- 2. Pit scouting ---------------------------------------
+            var pitEntries = Object.entries(data.pit_data || {}).filter(function (pair) {
+                var v = pair[1];
+                return v !== null && v !== undefined && v !== '';
+            });
+            html += '<div class="tm-section">';
+            html += sectionTitle('Pit Scouting');
+            if (data.pit_scout_status && pitEntries.length) {
+                html += '<div class="tm-pit-grid">';
+                pitEntries.forEach(function (pair) {
+                    var k = pair[0], v = pair[1];
+                    var display = Array.isArray(v) ? v.join(', ') : String(v);
+                    html += '<div class="tm-pit-card">'
+                          + '<div class="tm-pit-key">' + esc(k.replace(/_/g, ' ')) + '</div>'
+                          + '<div class="tm-pit-val">' + esc(display) + '</div>'
+                          + '</div>';
+                });
+                html += '</div>';
+            } else {
+                html += '<p class="tm-empty">This team has not been pit scouted yet.</p>';
+            }
+            html += '</div>';
+
+            // ---- 3. Match history (compact, scrolls in place) ----------
+            var matches = data.matches || [];
+            html += '<div class="tm-section tm-section-last">';
+            if (matches.length) {
+                var metrics = data.metrics || [];
+                html += sectionTitle('Match History', matches.length + ' match' + (matches.length === 1 ? '' : 'es'));
+                html += '<div class="tm-match-scroll"><table class="tm-match-table">';
+                html += '<thead><tr>';
+                html += '<th>M</th>';
+                metrics.slice(0, 6).forEach(function (m) {
+                    html += '<th class="tm-num">' + esc(m.display_name) + '</th>';
+                });
+                html += '<th class="tm-flagcol"></th>';
+                html += '<th>Notes</th>';
+                html += '</tr></thead><tbody>';
+                matches.forEach(function (m) {
+                    html += '<tr' + (m.excluded ? ' class="tm-excluded"' : '') + '>';
+                    html += '<td class="tm-mnum" title="Scouted by ' + esc(m.scout_name || 'unknown') + '">' + esc(m.match_number) + '</td>';
+                    metrics.slice(0, 6).forEach(function (metric) {
+                        var val = (m.data || {})[metric.key];
+                        html += '<td class="tm-num">' + (val !== undefined && val !== null ? esc(val) : '&mdash;') + '</td>';
+                    });
+                    var flags = m.flags || [];
+                    html += '<td class="tm-flagcol">'
+                          + (flags.length ? '<span class="tm-flag" title="' + esc(flags.join(', ')) + '">' + esc(flags.map(function (f) { return f[0]; }).join('')) + '</span>' : '')
+                          + '</td>';
+                    var comment = (m.comment || '').trim();
+                    html += '<td class="tm-comment" title="' + esc(comment) + '">' + (comment ? esc(comment) : '&mdash;') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html += sectionTitle('Match History');
+                html += '<p class="tm-empty">No match data scouted yet.</p>';
+            }
+            html += '</div>';
+
+            content.innerHTML = html;
+            loading.style.display = 'none';
+            content.style.display = 'block';
+            if (window.WebStats) { window.WebStats.render(document.getElementById('tm-web'), [teamNumber], { compact: true }); }
+        })
+        .catch(function () {
+            loading.textContent = 'Could not load team data.';
+        });
+    };
+
+    window.closeTeamModal = function () {
+        document.getElementById('team-modal-backdrop').style.display = 'none';
+        document.removeEventListener('keydown', trapFocus);
+        if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
+            lastFocusedTrigger.focus();
+        }
+        lastFocusedTrigger = null;
+    };
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.closeTeamModal();
+    });
+
+    function makePlaceholderSvg() {
+        return '<div style="width:48px;height:48px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;">'
+             + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted-text)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>'
+             + '</div>';
+    }
+})();
+</script>
+
+{{ team_info|json_script:"team-info-data" }}
+{{ picklist_flags|json_script:"picklist-flags-data" }}
+{{ filter_groups|json_script:"picklist-filters-data" }}
+{{ sort_metrics|json_script:"picklist-sortmetrics-data" }}
 <script>
     const comp_code = '{{ comp_code }}';
     let lastTimestamp = {{ json_timestamp|default:0 }};
+    window.TEAM_INFO = JSON.parse(document.getElementById('team-info-data').textContent);
+    // Star/strike state, attribute filter groups and sortable metrics all come
+    // from the server so they survive the 5-second board refresh.
+    function readJSON(id, fallback) {
+        var el = document.getElementById(id);
+        if (!el) return fallback;
+        try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
+    }
+    window.PICKLIST_FLAGS   = readJSON('picklist-flags-data', { starred: [], struck: [] });
+    window.PICKLIST_FILTERS = readJSON('picklist-filters-data', []);
+    window.PICKLIST_SORTS   = readJSON('picklist-sortmetrics-data', []);
 </script>
 <script src="{% static 'strategy/picklist.js' %}"></script>
+
+<script>
+/* =========================================================
+   Team Info Hydration — fill logos/nicknames into server-
+   rendered chips and expose helpers for JS-created chips.
+   ========================================================= */
+// Renders the small stat chips shown on every team card. Kept on `window` so
+// both the server-rendered hydration path and picklist.js's createTeamElement
+// produce identical markup.
+// Reorder the unassigned pool in place. Sorting the DOM directly keeps drag
+// and drop, the MutationObserver counts and the save payload all working,
+// since those read list order from the DOM rather than from separate state.
+window.sortPool = function (mode) {
+    var list = document.getElementById('no_pick');
+    if (!list) return;
+    var INFO = window.TEAM_INFO || {};
+
+    function infoFor(li) {
+        var n = parseInt(li.dataset.team || li.id, 10);
+        return INFO[n] || INFO[String(n)] || {};
+    }
+
+    var items = Array.prototype.slice.call(list.children);
+    items.sort(function (a, b) {
+        var ia = infoFor(a), ib = infoFor(b);
+        var na = parseInt(a.dataset.team || a.id, 10);
+        var nb = parseInt(b.dataset.team || b.id, 10);
+        if (mode === 'rank') {
+            // Unranked teams sort last rather than to the top.
+            return (ia.rank || 1e9) - (ib.rank || 1e9) || na - nb;
+        }
+        if (mode === 'driver') {
+            return (ib.driver || -1) - (ia.driver || -1) || na - nb;   // best first
+        }
+        if (mode === 'matches') {
+            return (ib.matches || 0) - (ia.matches || 0) || na - nb;
+        }
+        return na - nb;
+    });
+    items.forEach(function (li) { list.appendChild(li); });
+};
+
+window.buildStatChips = function (info) {
+    if (!info) return '';
+    var chips = [];
+    if (info.rank) {
+        chips.push('<span class="tstat tstat-rank" title="Event rank">#' + info.rank + '</span>');
+    }
+    if (info.matches) {
+        var driver = (info.driver === null || info.driver === undefined) ? null : info.driver;
+        if (driver !== null) {
+            var cls = driver >= 3.5 ? 'tstat-good' : (driver >= 2 ? 'tstat-mid' : 'tstat-low');
+            chips.push('<span class="tstat ' + cls + '" title="Average driver rating">D ' + driver + '</span>');
+        }
+        if (info.defense !== null && info.defense !== undefined && info.defense > 0) {
+            chips.push('<span class="tstat" title="Average defense rating">Def ' + info.defense + '</span>');
+        }
+        chips.push('<span class="tstat tstat-muted" title="Qualification matches scouted">' + info.matches + 'm</span>');
+    } else {
+        chips.push('<span class="tstat tstat-muted" title="No qualification data scouted yet">no data</span>');
+    }
+    return chips.join('');
+};
+
+(function () {
+    var INFO = window.TEAM_INFO || {};
+
+    /**
+     * Populate the logo placeholder and nickname span inside a chip element.
+     * @param {HTMLElement} chip - .picklist_teams <li>
+     */
+    window.hydrateChip = function (chip) {
+        var teamNum = parseInt(chip.dataset.team || chip.id, 10);
+        if (isNaN(teamNum)) return;
+        var info = INFO[teamNum] || INFO[String(teamNum)];
+        if (!info) return;
+
+        // Nickname
+        var nicknameEl = chip.querySelector('.js-nickname');
+        if (nicknameEl) nicknameEl.textContent = info.nickname || '';
+
+        // Scouting stats, so teams can be compared without opening each modal
+        var statsEl = chip.querySelector('.js-stats');
+        if (statsEl) statsEl.innerHTML = window.buildStatChips(info);
+
+        // Logo
+        var wrap = chip.querySelector('.js-logo-wrap');
+        if (wrap && info.logo_url) {
+            var img = document.createElement('img');
+            img.src = info.logo_url;
+            img.alt = '';
+            img.className = 'team-logo';
+            img.width = 40;
+            img.height = 40;
+            img.onerror = function () {
+                if (img.parentNode) img.parentNode.replaceChild(makePlaceholder(teamNum), img);
+            };
+            wrap.parentNode.replaceChild(img, wrap);
+        }
+    };
+
+    function makePlaceholder(teamNum) {
+        var d = document.createElement('div');
+        d.className = 'team-logo-placeholder';
+        return d;
+    }
+
+    // Hydrate all already-rendered chips on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.picklist_teams').forEach(function (chip) {
+            window.hydrateChip(chip);
+        });
+    });
+})();
+</script>
 
 <script>
 /* =========================================================
@@ -473,14 +2061,22 @@
         badge.textContent = text;
     }
 
-    /* Column counts */
+    /* Column counts. Cards hidden by an attribute filter are excluded, so the
+       badge reflects what the strategist can actually see in the column. */
     function updateCounts() {
-        ['no_pick', '1st_pick', '2nd_pick', '3rd_pick', 'dnp'].forEach(function (id) {
+        ['no_pick', '1st_pick', '2nd_pick', '3rd_pick', 'dnp', '4th_pick'].forEach(function (id) {
             var list  = document.getElementById(id);
             var count = document.getElementById('count-' + id);
-            if (list && count) count.textContent = list.children.length;
+            if (!list || !count) return;
+            var visible = Array.prototype.slice.call(list.children).filter(function (li) {
+                return li.classList &&
+                       li.classList.contains('picklist_teams') &&
+                       !li.classList.contains('filtered-out');
+            });
+            count.textContent = visible.length;
         });
     }
+    window.updateColumnCounts = updateCounts;
     updateCounts();
 
     /* Drag-over visual on columns */
@@ -496,7 +2092,7 @@
     };
 
     /* Observe DOM changes in lists to update counts */
-    var listIds = ['no_pick', '1st_pick', '2nd_pick', '3rd_pick', 'dnp'];
+    var listIds = ['no_pick', '1st_pick', '2nd_pick', '3rd_pick', 'dnp', '4th_pick'];
     listIds.forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
@@ -560,12 +2156,14 @@
     var matchCounter = document.getElementById('picklist-match-count');
 
     function filterChips() {
-        var q = searchInput.value.trim();
+        var q = searchInput.value.trim().toLowerCase();
         var chips = document.querySelectorAll('.picklist_teams');
         var matches = 0;
         chips.forEach(function (chip) {
-            var num = chip.id || '';
-            var show = !q || num.includes(q);
+            var num = (chip.id || '').toLowerCase();
+            var nickname = (chip.querySelector('.team-nickname') || {}).textContent || '';
+            nickname = nickname.toLowerCase();
+            var show = !q || num.includes(q) || nickname.includes(q);
             chip.style.display = show ? '' : 'none';
             chip.style.outline = (show && q) ? '2px solid var(--accent)' : '';
             if (show && q) matches++;
@@ -574,6 +2172,509 @@
     }
 
     if (searchInput) searchInput.addEventListener('input', filterChips);
+})();
+
+/* =========================================================================
+   Compare mode
+   Strategy's remaining reason to leave the app was putting teams side by side.
+   Selecting cards here builds a comparison table from the same endpoint the
+   single-team modal uses, so the numbers always agree with it.
+   ========================================================================= */
+(function () {
+    var MAX = 4;
+    var picked = [];
+
+    function comp() {
+        var m = window.location.search.match(/[?&]comp=([^&]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    function infoFor(n) {
+        var I = window.TEAM_INFO || {};
+        return I[n] || I[String(n)] || {};
+    }
+
+    function renderTray() {
+        var tray  = document.getElementById('compare-tray');
+        var chips = document.getElementById('compare-chips');
+        var go    = document.getElementById('compare-go');
+        if (!tray) return;
+        tray.hidden = !document.body.classList.contains('compare-mode');
+        chips.innerHTML = picked.length
+            ? picked.map(function (n) { return '<span class="compare-chip">' + n + '</span>'; }).join('')
+            : '<span class="cmp-na" style="font-size:0.75rem;">tap teams to select (up to ' + MAX + ')</span>';
+        go.disabled = picked.length < 2;
+        go.textContent = picked.length > 1 ? ('Compare ' + picked.length) : 'Compare';
+    }
+
+    function syncCards() {
+        document.querySelectorAll('.picklist_teams').forEach(function (li) {
+            var n = parseInt(li.dataset.team || li.id, 10);
+            li.classList.toggle('cmp-picked', picked.indexOf(n) !== -1);
+        });
+    }
+
+    window.toggleCompareMode = function () {
+        var on = document.body.classList.toggle('compare-mode');
+        document.getElementById('compare-toggle').classList.toggle('active', on);
+        if (!on) { picked = []; syncCards(); }
+        renderTray();
+    };
+
+    window.clearCompare = function () { picked = []; syncCards(); renderTray(); };
+
+    // Capture phase: in compare mode a tap selects instead of opening the
+    // single-team modal or starting a drag.
+    document.addEventListener('click', function (ev) {
+        if (!document.body.classList.contains('compare-mode')) return;
+        var li = ev.target.closest ? ev.target.closest('.picklist_teams') : null;
+        if (!li) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        var n = parseInt(li.dataset.team || li.id, 10);
+        if (isNaN(n)) return;
+        var at = picked.indexOf(n);
+        if (at !== -1) { picked.splice(at, 1); }
+        else if (picked.length < MAX) { picked.push(n); }
+        syncCards();
+        renderTray();
+    }, true);
+
+    function num(v) { return (v === null || v === undefined || v === '') ? null : Number(v); }
+    function blank(v) { return v === null || v === undefined || v === ''; }
+
+    function esc(v) {
+        return String(v === null || v === undefined ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // better: 'high' | 'low' | undefined (text rows are not ranked).
+    // opts.bars draws a bar under each number, scaled to the row's largest value.
+    function row(cols, label, values, better, opts) {
+        opts = opts || {};
+        var nums = values.map(num);
+        var valid = nums.filter(function (v) { return v !== null && !isNaN(v); });
+        var best = null;
+        if (better && valid.length > 1) {
+            best = better === 'high' ? Math.max.apply(null, valid) : Math.min.apply(null, valid);
+            if (valid.every(function (v) { return v === best; })) best = null;   // a tie everywhere is not a win
+        }
+        var max = valid.length ? Math.max.apply(null, valid) : 0;
+
+        var cells = values.map(function (v, i) {
+            if (blank(v)) return '<div class="cmp-cell cmp-na">&mdash;</div>';
+            var n = nums[i];
+            var isNum = n !== null && !isNaN(n);
+            var cls = 'cmp-cell' + (isNum ? '' : ' cmp-text') + (isNum && best !== null && n === best ? ' cmp-best' : '');
+            var html = '<span class="cmp-val">' + esc(v) + (opts.unit ? esc(opts.unit) : '') + '</span>';
+            if (opts.bars && isNum && max > 0) {
+                html += '<span class="cmp-bar"><span style="width:' + Math.max(4, Math.round(n / max * 100)) + '%"></span></span>';
+            }
+            return '<div class="' + cls + '">' + html + '</div>';
+        }).join('');
+        return '<div class="cmp-grid cmp-row" style="--cols:' + cols + '"><div class="cmp-label">' + esc(label) + '</div>' + cells + '</div>';
+    }
+
+    function section(title, rowsHtml, note, open) {
+        if (!rowsHtml) return '';
+        return '<details class="cmp-section"' + (open ? ' open' : '') + '>' +
+               '<summary>' + esc(title) + (note ? ' <span class="cmp-count">' + esc(note) + '</span>' : '') + '</summary>' +
+               '<div class="cmp-rows">' + rowsHtml + '</div></details>';
+    }
+
+    window.openCompare = function () {
+        if (picked.length < 2) return;
+        var backdrop = document.getElementById('compare-backdrop');
+        var body     = document.getElementById('cmp-body');
+        backdrop.hidden = false;
+        body.innerHTML = '<div class="cmp-loading">Loading&hellip;</div>';
+
+        var c = comp();
+        var teams = picked.slice();
+        var n = teams.length;
+        Promise.all(teams.map(function (t) {
+            return fetch('/api/team_info/' + t + '/?comp=' + encodeURIComponent(c) + '&quantifier=Quals', {
+                credentials: 'include', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.ok ? r.json() : {}; })
+            .catch(function () { return {}; });
+        })).then(function (details) {
+            // ---- Team header cards (sticky while the sections scroll) ----
+            var html = '<div class="cmp-grid cmp-teams" style="--cols:' + n + '"><div></div>' + teams.map(function (t, i) {
+                var info = infoFor(t);
+                var logo = (details[i] && details[i].logo_url) || info.logo_url;
+                return '<div class="cmp-team-card">' +
+                    (logo ? '<img src="' + esc(logo) + '" alt="">' : '<span class="cmp-logo-ph"></span>') +
+                    '<div class="cmp-team-text">' +
+                        '<div class="cmp-team-num">' + t + '</div>' +
+                        '<div class="cmp-team-nick">' + esc(info.nickname || '') + '</div>' +
+                    '</div>' +
+                    '<a class="cmp-team-link" href="/teams/' + t + '/' + (c ? '?comp=' + encodeURIComponent(c) : '') + '">Team page</a>' +
+                '</div>';
+            }).join('') + '</div>';
+
+            // ---- Web stats: every compared team on one hexagon ----
+            html += '<details class="cmp-section" open><summary>Web stats <span class="cmp-count">scaled to the best team at this event</span></summary>'
+                  + '<div class="cmp-web" id="cmp-web"></div></details>';
+
+            // ---- Overview ----
+            html += section('Overview',
+                row(n, 'Event rank',      teams.map(function (t) { return infoFor(t).rank; }), 'low') +
+                row(n, 'Matches scouted', teams.map(function (t) { return infoFor(t).matches; }), 'high') +
+                row(n, 'Driver rating',   teams.map(function (t) { return infoFor(t).driver; }), 'high', { bars: true }) +
+                row(n, 'Defense rating',  teams.map(function (t) { return infoFor(t).defense; }), 'high', { bars: true }) +
+                row(n, 'Pit scouted',     details.map(function (d) { return d && d.pit_scout_status ? 'Yes' : 'No'; })),
+                '', true);
+
+            // ---- Scoring averages: every metric any of the teams has ----
+            var avgKeys = [], avgMeta = {};
+            details.forEach(function (d) {
+                ((d && d.averages) || []).forEach(function (a) {
+                    if (!avgMeta[a.key]) { avgMeta[a.key] = a; avgKeys.push(a.key); }
+                });
+            });
+            html += section('Scoring averages', avgKeys.map(function (k) {
+                return row(n, avgMeta[k].label, details.map(function (d) {
+                    var hit = ((d && d.averages) || []).find(function (a) { return a.key === k; });
+                    return hit ? hit.value : null;
+                }), 'high', { bars: true, unit: avgMeta[k].unit });
+            }).join(''), avgKeys.length + ' metrics', true);
+
+            // ---- Pit scouting: union of keys, so a field only one team answered still shows ----
+            var keys = [];
+            details.forEach(function (d) {
+                Object.keys((d && d.pit_data) || {}).forEach(function (k) { if (keys.indexOf(k) === -1) keys.push(k); });
+            });
+            keys.sort();
+            html += section('Pit scouting', keys.map(function (k) {
+                return row(n, k.replace(/_/g, ' '), details.map(function (d) {
+                    var v = ((d && d.pit_data) || {})[k];
+                    return Array.isArray(v) ? v.join(', ') : v;
+                }));
+            }).join(''), keys.length + ' fields', keys.length <= 12);
+
+            body.innerHTML = html;
+            if (window.WebStats) { window.WebStats.render(document.getElementById('cmp-web'), teams); }
+        });
+    };
+
+    window.closeCompare = function () {
+        document.getElementById('compare-backdrop').hidden = true;
+    };
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape') return;
+        var b = document.getElementById('compare-backdrop');
+        if (b && !b.hidden) { closeCompare(); }
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderTray);
+    } else { renderTray(); }
+})();
+</script>
+
+<script>
+/* =========================================================================
+   Web stats: a hexagon ("radar") chart of six per-team averages.
+   One endpoint feeds every view - the team modal, the compare modal and the
+   standalone Web stats dialog - so the shapes always agree.
+   ========================================================================= */
+(function () {
+    var MAX_TEAMS = 4;
+    var cache = null;
+
+    function comp() {
+        var m = window.location.search.match(/[?&]comp=([^&]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+    function load() {
+        if (cache) return cache;
+        cache = fetch('/api/web_stats/?comp=' + encodeURIComponent(comp()) + '&quantifier=Quals', {
+            credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+        return cache;
+    }
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function fmt(v) { return (Math.round(v * 10) / 10).toString(); }
+    function colorFor(i, single) { return single ? 'var(--accent)' : 'var(--web-' + (i + 1) + ')'; }
+
+    function render(el, teamNumbers, opts) {
+        if (!el) return;
+        opts = opts || {};
+        el.innerHTML = '<div class="web-empty">Loading&hellip;</div>';
+        load().then(function (data) {
+            if (!data || !data.axes) { el.innerHTML = '<div class="web-empty">Web stats are unavailable right now.</div>'; return; }
+            var axes = data.axes;
+            var series = teamNumbers.slice(0, MAX_TEAMS).map(function (n) {
+                return { team: String(n), stats: data.teams[String(n)] };
+            });
+            var withData = series.filter(function (s) { return s.stats; });
+            if (!withData.length) {
+                el.innerHTML = '<div class="web-empty">No scouted matches yet for ' + series.map(function (s) { return esc(s.team); }).join(', ') + '.</div>';
+                return;
+            }
+            var single = series.length === 1;
+
+            // Geometry: six axes, the first pointing straight up.
+            var W = 360, H = 320, cx = W / 2, cy = H / 2 + 4, R = 112;
+            function pt(i, frac) {
+                var a = -Math.PI / 2 + i * 2 * Math.PI / axes.length;
+                return [cx + Math.cos(a) * R * frac, cy + Math.sin(a) * R * frac];
+            }
+            function frac(axis, v) { return Math.max(0, Math.min(1, (v || 0) / (axis.max || 1))); }
+
+            var svg = '<svg class="web-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Web stats for team' + (single ? ' ' : 's ') + esc(series.map(function (s) { return s.team; }).join(', ')) + '">';
+            // Rings at 20% steps, outer ring stronger.
+            for (var k = 1; k <= 5; k++) {
+                var ring = axes.map(function (_, i) { return pt(i, k / 5).map(function (n) { return n.toFixed(1); }).join(','); }).join(' ');
+                svg += '<polygon class="web-ring' + (k === 5 ? ' is-outer' : '') + '" points="' + ring + '"/>';
+            }
+            axes.forEach(function (axis, i) {
+                var e = pt(i, 1);
+                svg += '<line class="web-spoke" x1="' + cx + '" y1="' + cy + '" x2="' + e[0].toFixed(1) + '" y2="' + e[1].toFixed(1) + '"/>';
+                var l = pt(i, 1.2);
+                var anchor = Math.abs(l[0] - cx) < 4 ? 'middle' : (l[0] > cx ? 'start' : 'end');
+                var dy = l[1] < cy - R * 0.9 ? -4 : (l[1] > cy + R * 0.9 ? 12 : 4);
+                svg += '<text class="web-axis-label" x="' + l[0].toFixed(1) + '" y="' + (l[1] + dy).toFixed(1) + '" text-anchor="' + anchor + '">' + esc(axis.label) + '</text>';
+                // Single team: its value sits under the label. Otherwise the scale.
+                var sub = single && series[0].stats
+                    ? fmt(series[0].stats.values[axis.key]) + (axis.rating ? ' / 5' : '')
+                    : (axis.rating ? 'of 5' : 'best ' + fmt(axis.max));
+                svg += '<text class="web-axis-sub" x="' + l[0].toFixed(1) + '" y="' + (l[1] + dy + 13).toFixed(1) + '" text-anchor="' + anchor + '">' + esc(sub) + '</text>';
+            });
+            series.forEach(function (s, idx) {
+                if (!s.stats) return;
+                var col = colorFor(idx, single);
+                var pts = axes.map(function (axis, i) { return pt(i, frac(axis, s.stats.values[axis.key])); });
+                var poly = pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+                svg += '<g class="web-series" data-series="' + idx + '" style="--cx:' + cx + 'px;--cy:' + cy + 'px;animation-delay:' + (idx * 90) + 'ms">'
+                     + '<polygon class="web-shape web-shape-fill" points="' + poly + '" fill="' + col + '"/>'
+                     + '<polygon class="web-shape" points="' + poly + '" fill="none" stroke="' + col + '"/>'
+                     + pts.map(function (p) { return '<circle class="web-dot" cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="4.5" fill="' + col + '"/>'; }).join('')
+                     + '</g>';
+            });
+            svg += '</svg>';
+
+            // Legend (two or more teams) doubles as a focus control; one team
+            // gets a plain value table instead, which is also the table view.
+            var side = '';
+            if (!single) {
+                side = '<div class="web-legend">' + series.map(function (s, idx) {
+                    var info = (window.TEAM_INFO || {})[s.team] || {};
+                    return '<div class="web-legend-row" data-series="' + idx + '">'
+                         + '<span class="web-swatch" style="background:' + colorFor(idx, false) + '"></span>'
+                         + '<span class="web-legend-name">' + esc(s.team) + '</span>'
+                         + '<span class="web-legend-note">' + (s.stats ? (info.nickname ? esc(info.nickname) + ' &middot; ' : '') + s.stats.matches + ' matches' : 'no scouted matches') + '</span>'
+                         + '</div>';
+                }).join('') + '</div>';
+            }
+            var table = '<table class="web-values"><thead><tr><th></th>' + series.map(function (s) { return '<th>' + esc(s.team) + '</th>'; }).join('') + '</tr></thead><tbody>'
+                + axes.map(function (axis) {
+                    return '<tr><td>' + esc(axis.label) + '</td>' + series.map(function (s) {
+                        return '<td>' + (s.stats ? fmt(s.stats.values[axis.key]) : '&mdash;') + '</td>';
+                    }).join('') + '</tr>';
+                }).join('') + '</tbody></table>';
+
+            var target = opts.side ? document.getElementById(opts.side) : null;
+            el.innerHTML = '<div class="web-wrap' + (opts.compact ? ' is-compact' : '') + '">' + svg
+                + (target ? '' : side + (single ? table : ''))
+                + '<div class="web-tip" hidden></div></div>';
+            if (target) { target.innerHTML = side + table; }
+
+            // Hover: nearest vertex across all teams, within reach.
+            var wrap = el.querySelector('.web-wrap');
+            var svgEl = el.querySelector('.web-svg');
+            var tip = el.querySelector('.web-tip');
+            var verts = [];
+            series.forEach(function (s, idx) {
+                if (!s.stats) return;
+                axes.forEach(function (axis, i) {
+                    var p = pt(i, frac(axis, s.stats.values[axis.key]));
+                    verts.push({ x: p[0], y: p[1], idx: idx, text: 'Team ' + s.team + ' · ' + axis.label + ' ' + fmt(s.stats.values[axis.key]) + (axis.rating ? ' / 5' : '') });
+                });
+            });
+            function focus(idx) {
+                wrap.classList.toggle('is-dimming', idx != null && !single);
+                wrap.querySelectorAll('.web-series').forEach(function (g) { g.classList.toggle('is-focus', +g.dataset.series === idx); });
+            }
+            svgEl.addEventListener('pointermove', function (ev) {
+                var r = svgEl.getBoundingClientRect(), sx = W / r.width;
+                var x = (ev.clientX - r.left) * sx, y = (ev.clientY - r.top) * sx;
+                var best = null, bd = 22 * 22;
+                verts.forEach(function (v) { var d = (v.x - x) * (v.x - x) + (v.y - y) * (v.y - y); if (d < bd) { bd = d; best = v; } });
+                if (!best) { tip.hidden = true; focus(null); return; }
+                var wr = wrap.getBoundingClientRect();
+                tip.hidden = false;
+                tip.textContent = best.text;
+                tip.style.left = (r.left - wr.left + best.x / sx) + 'px';
+                tip.style.top = (r.top - wr.top + best.y / sx) + 'px';
+                focus(best.idx);
+            });
+            svgEl.addEventListener('pointerleave', function () { tip.hidden = true; focus(null); });
+            (target || el).querySelectorAll('.web-legend-row').forEach(function (row) {
+                row.addEventListener('mouseenter', function () { focus(+row.dataset.series); });
+                row.addEventListener('mouseleave', function () { focus(null); });
+            });
+        });
+    }
+
+    window.WebStats = { render: render };
+
+    /* ---- Standalone dialog ---- */
+    var picked = [];
+    function drawDialog() {
+        var chips = document.getElementById('web-chips');
+        chips.innerHTML = picked.map(function (n, i) {
+            return '<span class="web-chip"><i style="background:' + colorFor(i, picked.length === 1) + '"></i>' + esc(n)
+                 + '<button type="button" data-team="' + esc(n) + '" aria-label="Remove team ' + esc(n) + '">&times;</button></span>';
+        }).join('');
+        chips.querySelectorAll('button').forEach(function (b) {
+            b.addEventListener('click', function () { picked = picked.filter(function (t) { return t !== b.dataset.team; }); drawDialog(); });
+        });
+        if (!picked.length) {
+            document.getElementById('web-chart').innerHTML = '<div class="web-empty">Add up to ' + MAX_TEAMS + ' teams to compare their webs.</div>';
+            document.getElementById('web-side').innerHTML = '';
+            return;
+        }
+        render(document.getElementById('web-chart'), picked, { side: 'web-side' });
+    }
+    window.openWebStats = function () {
+        var list = document.getElementById('web-team-list');
+        list.innerHTML = Object.keys(window.TEAM_INFO || {}).sort(function (a, b) { return a - b; }).map(function (n) {
+            return '<option value="' + esc(n) + '">' + esc((window.TEAM_INFO[n] || {}).nickname || '') + '</option>';
+        }).join('');
+        // Start from the teams picked in compare mode, else the first-pick column.
+        if (!picked.length) {
+            var fromCompare = [].slice.call(document.querySelectorAll('.picklist_teams.cmp-picked')).map(function (li) { return String(li.dataset.team || li.id); });
+            var fromFirst = [].slice.call(document.querySelectorAll('[id="1st_pick"] > .picklist_teams')).map(function (li) { return String(li.dataset.team || li.id); });
+            picked = (fromCompare.length ? fromCompare : fromFirst).filter(Boolean).slice(0, 3);
+        }
+        document.getElementById('web-backdrop').hidden = false;
+        drawDialog();
+        setTimeout(function () { document.getElementById('web-team-input').focus(); }, 50);
+    };
+    window.closeWebStats = function () { document.getElementById('web-backdrop').hidden = true; };
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('web-pick');
+        if (!form) return;
+        form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            var input = document.getElementById('web-team-input');
+            var n = input.value.trim();
+            if (/^\d{1,5}$/.test(n) && picked.indexOf(n) === -1 && picked.length < MAX_TEAMS) { picked.push(n); }
+            input.value = '';
+            drawDialog();
+        });
+        // Same reparenting as the other dialogs, so the transformed page body
+        // cannot clip it.
+        var bd = document.getElementById('web-backdrop');
+        if (bd && bd.parentNode !== document.body) document.body.appendChild(bd);
+    });
+    document.addEventListener('keydown', function (ev) {
+        var b = document.getElementById('web-backdrop');
+        if (ev.key === 'Escape' && b && !b.hidden) closeWebStats();
+    });
+})();
+</script>
+
+<script>
+/* =========================================================================
+   Draft room: keeps the alliance plates and the counters in step with the
+   board. Watches the board itself, so drags, undo and the 5-second server
+   refresh all update it without hooking into picklist.js.
+   ========================================================================= */
+(function () {
+    var PICKS = ['1st_pick', '2nd_pick', '3rd_pick', '4th_pick'];
+    var last = {};
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function cards(list) {
+        return list ? [].slice.call(list.querySelectorAll(':scope > .picklist_teams')) : [];
+    }
+
+    function update() {
+        // Each pick column is a ranked queue: the first team not yet taken is our pick for that round, the rest are backups.
+        PICKS.forEach(function (id) {
+            var plate = document.querySelector('.draft-plate[data-col="' + id + '"]');
+            if (!plate) return;
+            var wrap = document.getElementById('colwrap-' + id);
+            var hidden = !!(wrap && wrap.hidden);
+            plate.hidden = hidden;
+            if (hidden) return;
+
+            var all = cards(document.getElementById(id));
+            var open = all.filter(function (li) { return !li.classList.contains('is-struck'); });
+            var queue = open.map(function (li) { return String(li.dataset.team || li.id); });
+            var key = queue.join(',') + '|' + all.length;
+            if (last[id] === key) return;
+            var changedTop = (last[id] || '').split(',')[0] !== (queue[0] || '');
+            last[id] = key;
+
+            var head = '<span class="plate-role">' + esc(plate.dataset.round) + ' &middot; best available</span>';
+            if (!queue.length) {
+                plate.classList.remove('is-filled');
+                plate.innerHTML = head + '<span class="plate-open">'
+                    + (all.length ? 'Every team in this list is taken' : 'No teams ranked yet') + '</span>';
+                return;
+            }
+            var info = (window.TEAM_INFO || {})[queue[0]] || {};
+            var backups = queue.slice(1, 4);
+            plate.classList.add('is-filled');
+            plate.innerHTML = head
+                + '<div class="plate-main">'
+                +   (info.logo_url ? '<img class="plate-logo" src="' + esc(info.logo_url) + '" alt="">' : '<span class="plate-logo is-blank"></span>')
+                +   '<span class="plate-text"><b>' + esc(queue[0]) + '</b><small>' + esc(info.nickname || '') + '</small></span>'
+                +   '<span class="plate-left" title="Teams in this list not yet taken">' + queue.length + ' of ' + all.length + ' left</span>'
+                + '</div>'
+                + '<div class="plate-next">'
+                +   (backups.length
+                        ? '<span>If taken:</span>' + backups.map(function (t) { return '<em>' + esc(t) + '</em>'; }).join('<i aria-hidden="true">&rsaquo;</i>')
+                          + (queue.length > 4 ? '<span>+' + (queue.length - 4) + '</span>' : '')
+                        : '<span>No backups ranked below</span>')
+                + '</div>';
+            if (changedTop) {
+                plate.classList.remove('just-changed');
+                void plate.offsetWidth;
+                plate.classList.add('just-changed');
+            }
+        });
+
+        var board = document.getElementById('picklist-board');
+        if (!board) return;
+        var all = [].slice.call(board.querySelectorAll('.picklist_teams'));
+        var pool = cards(document.getElementById('no_pick'));
+        document.getElementById('draft-available').textContent = pool.filter(function (li) { return !li.classList.contains('is-struck'); }).length;
+        document.getElementById('draft-taken').textContent = all.filter(function (li) { return li.classList.contains('is-struck'); }).length;
+        document.getElementById('draft-starred').textContent = all.filter(function (li) { return li.classList.contains('is-starred'); }).length;
+
+        board.querySelectorAll('ol.lists').forEach(function (ol) {
+            ol.classList.toggle('is-empty', !ol.querySelector('.picklist_teams, .picklist-placeholder'));
+        });
+    }
+
+    var queued = false;
+    function schedule() {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(function () { queued = false; update(); });
+    }
+
+    function init() {
+        var board = document.getElementById('picklist-board');
+        if (!board) return;
+        // childList for moves, attributes for star/strike/hidden-column changes.
+        new MutationObserver(schedule).observe(board, {
+            childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'],
+        });
+        update();
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
+    else { init(); }
 })();
 </script>
 {% endblock %}

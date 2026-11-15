@@ -39,21 +39,24 @@
 
     {% for q in questions %}
     <div class="form-group" data-q="{{ q.key }}" style="animation-delay:{{ forloop.counter0 }}0ms">
-        <label class="form-label" data-i18n="pit.{{ q.key }}">
+        <label class="form-label" for="pit-{{ q.key }}" data-i18n="pit.{{ q.key }}">
             {{ q.display_name }}{% if q.required %} <span class="req-star">*</span>{% endif %}
         </label>
 
         {% if q.type == "text" %}
             <input type="text" name="{{ q.key }}"
+                   id="pit-{{ q.key }}"
                    class="theme-input"
                    value="{{ existing_data|get_item:q.key|default:'' }}"
                    data-required="{{ q.required }}"
+                   aria-describedby="error-{{ q.key }}"
                    placeholder="{{ q.display_name }}">
 
         {% elif q.type == "number" %}
             <div class="num-stepper">
                 <button type="button" class="step-btn" data-dir="-1">−</button>
                 <input type="number" name="{{ q.key }}"
+                       id="pit-{{ q.key }}"
                        class="theme-input stepper-input"
                        value="{{ existing_data|get_item:q.key|default:'' }}"
                        {% if q.min is not None %}min="{{ q.min }}"{% endif %}
@@ -62,6 +65,7 @@
                        data-required="{{ q.required }}"
                        data-min="{{ q.min }}"
                        data-max="{{ q.max }}"
+                       aria-describedby="error-{{ q.key }}"
                        placeholder="0">
                 <button type="button" class="step-btn" data-dir="1">+</button>
             </div>
@@ -79,9 +83,11 @@
 
         {% elif q.type == "textarea" %}
             <textarea name="{{ q.key }}"
+                      id="pit-{{ q.key }}"
                       rows="3"
                       class="theme-input"
                       data-required="{{ q.required }}"
+                      aria-describedby="error-{{ q.key }}"
                       placeholder="{{ q.display_name }}">{{ existing_data|get_item:q.key|default:'' }}</textarea>
 
         {% elif q.type == "select" %}
@@ -109,7 +115,7 @@
 
         {% elif q.type == "boolean" %}
             <input type="hidden" name="{{ q.key }}" value="{% if existing_data|get_item:q.key %}on{% endif %}" class="hidden-bool-input">
-            <div class="bool-toggle{% if existing_data|get_item:q.key %} is-on{% endif %}" data-for="{{ q.key }}" role="switch" tabindex="0">
+            <div class="bool-toggle{% if existing_data|get_item:q.key %} is-on{% endif %}" data-for="{{ q.key }}" role="switch" tabindex="0" aria-checked="{% if existing_data|get_item:q.key %}true{% else %}false{% endif %}">
                 <span class="bool-no">No</span>
                 <div class="toggle-track">
                     <div class="toggle-thumb"></div>
@@ -550,7 +556,7 @@ html.inverted .form-group:hover {
     font-family: inherit;
 }
 .theme-btn:hover {
-    background: var(--accent-hover, #8f0f1f);
+    background: var(--accent-hover, #D62828);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 50%, transparent);
     transform: translateY(-1px);
 }
@@ -706,6 +712,7 @@ html.inverted .form-group:hover {
         function flip(force) {
             var on = force !== undefined ? force : !toggle.classList.contains('is-on');
             toggle.classList.toggle('is-on', on);
+            toggle.setAttribute('aria-checked', on ? 'true' : 'false');
             hiddenInput.value = on ? 'on' : '';
             hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
@@ -808,6 +815,7 @@ html.inverted .form-group:hover {
             if (toggle) {
                 var on = val === 'on' || val === true || val === 'true';
                 toggle.classList.toggle('is-on', on);
+                toggle.setAttribute('aria-checked', on ? 'true' : 'false');
                 var boolHidden = form.querySelector('input[name="' + name + '"].hidden-bool-input');
                 if (boolHidden) boolHidden.value = on ? 'on' : '';
                 return;
@@ -913,7 +921,11 @@ html.inverted .form-group:hover {
             e.preventDefault();
             updateProgress();
             var first = form.querySelector('.is-invalid');
-            if (first) window.scrollTo({ top: first.offsetTop - 80, behavior: 'smooth' });
+            if (first) {
+                window.scrollTo({ top: first.offsetTop - 80, behavior: 'smooth' });
+                var firstControl = first.querySelector('input, textarea, select, [role="switch"], .opt-btn, .pill-btn');
+                if (firstControl) firstControl.focus();
+            }
         } else {
             localStorage.removeItem(STORAGE_KEY);
         }

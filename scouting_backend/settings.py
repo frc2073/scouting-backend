@@ -49,21 +49,36 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
+    "scouting.team2073.com",
     "scouting.chrisccluk.live",
     "scout.chrisccluk.live",
+    "scouts.chrisccluk.live",
+    # Leading dot matches any subdomain, covering Vercel's production and
+    # per-deployment preview URLs without having to pin each one.
+    ".vercel.app",
 ]
 
 # IPs allowed to set X-Forwarded-For (e.g. Render's load balancer, nginx)
 TRUSTED_PROXIES = os.environ.get('TRUSTED_PROXIES', '').split(',')
 TRUSTED_PROXIES = [ip.strip() for ip in TRUSTED_PROXIES if ip.strip()]
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'scouting_cache',
+        'TIMEOUT': 300,
+    },
+}
+
 # CSRF configuration
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'https://localhost:8000',
     'http://127.0.0.1:8000',
+    'https://scouting.team2073.com',
     'https://scouting.chrisccluk.live',
     'https://scout.chrisccluk.live',
+    'https://*.vercel.app',
 ]
 
 # Application definition
@@ -81,6 +96,8 @@ INSTALLED_APPS = [
     'strategy',
     'authenticate',
     'scanner',
+    'ingest',
+    'hours_app',
 ]
 
 MIDDLEWARE = [
@@ -90,6 +107,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'hours_app.middleware.HoursAuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'scouting_backend.middleware.plugin_injection.PluginInjectionMiddleware',
@@ -97,11 +115,15 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'scouting_backend.urls'
 
+# All entries must be absolute. Relative paths resolve against the current
+# working directory, which is the project root under `manage.py runserver` but
+# is not guaranteed under gunicorn or a serverless runtime - there the scanner
+# page would fail with TemplateDoesNotExist.
 UI_TEMPLATES = [
     os.path.join(BASE_DIR, 'templates'),
-    os.path.join('scanner', 'templates', 'scanner'),
-    os.path.join('teams', 'templates', 'teams'),
-    os.path.join('strategy', 'templates', 'strategy')
+    os.path.join(BASE_DIR, 'scanner', 'templates', 'scanner'),
+    os.path.join(BASE_DIR, 'teams', 'templates', 'teams'),
+    os.path.join(BASE_DIR, 'strategy', 'templates', 'strategy'),
 ]
 
 TEMPLATES = [
@@ -133,6 +155,12 @@ if DATABASE_URL:
             conn_health_checks=True,
         )
     }
+    if 'postgresql' in DATABASES['default'].get('ENGINE', ''):
+        # Supabase's pooler (pgbouncer) shares connections between clients, which
+        # server-side cursors don't survive; and a connection that can't be
+        # opened should fail fast rather than hang the whole request.
+        DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
+        DATABASES['default'].setdefault('OPTIONS', {}).setdefault('connect_timeout', 10)
 else:
     DATABASES = {
         'default': {

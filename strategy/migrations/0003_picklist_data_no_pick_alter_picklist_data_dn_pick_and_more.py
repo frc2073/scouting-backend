@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+from ._pg_only import PostgresOnlyRunSQL
+
 
 class Migration(migrations.Migration):
 
@@ -15,7 +17,7 @@ class Migration(migrations.Migration):
             name='no_pick',
             field=models.JSONField(default=list),
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql=(
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN dn_pick TYPE jsonb USING to_jsonb(dn_pick);"
             ),
@@ -23,7 +25,7 @@ class Migration(migrations.Migration):
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN dn_pick TYPE integer[] USING array(SELECT jsonb_array_elements_text(dn_pick)::integer);"
             ),
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql=(
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN first_pick TYPE jsonb USING to_jsonb(first_pick);"
             ),
@@ -31,7 +33,7 @@ class Migration(migrations.Migration):
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN first_pick TYPE integer[] USING array(SELECT jsonb_array_elements_text(first_pick)::integer);"
             ),
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql=(
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN second_pick TYPE jsonb USING to_jsonb(second_pick);"
             ),
@@ -39,7 +41,7 @@ class Migration(migrations.Migration):
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN second_pick TYPE integer[] USING array(SELECT jsonb_array_elements_text(second_pick)::integer);"
             ),
         ),
-        migrations.RunSQL(
+        PostgresOnlyRunSQL(
             sql=(
                 "ALTER TABLE strategy_picklist_data ALTER COLUMN third_pick TYPE jsonb USING to_jsonb(third_pick);"
             ),
